@@ -30,6 +30,7 @@ export const addPlan = (state, plan, afterId) => {
 
 export const removePlan = (state, planId) => {
   const plans = state.plans.filter(p => p.id !== planId);
+  if (plans.length === 0) return state;
   const activePlanId = state.activePlanId === planId ? plans[0].id : state.activePlanId;
   return { activePlanId, plans };
 };

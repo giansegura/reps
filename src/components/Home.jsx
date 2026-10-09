@@ -34,7 +34,7 @@ export function Home({ plan, planName, sessions, onStartWorkout, onOpenPlans, on
                     <span className="day-label">{day.label}</span>
                   </span>
                   <span className="ex-count">
-                    {empty ? 'Sin ejercicios' : `${day.exercises.length} ejercicios`}
+                    {empty ? 'Sin ejercicios' : `${day.exercises.length} ${day.exercises.length === 1 ? 'ejercicio' : 'ejercicios'}`}
                   </span>
                 </span>
                 {day.exercises.map((ex, i) => {

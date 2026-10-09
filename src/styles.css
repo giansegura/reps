@@ -345,6 +345,8 @@ button:disabled { cursor: not-allowed; }
 .data-text { font-size: 13px; color: var(--fg-3); margin-top: 4px; }
 .data-actions { display: flex; gap: 8px; }
 .data-actions .ghost-btn { margin-top: 12px; }
+.crash { padding-top: 48px; }
+.crash .data-text { margin-top: 8px; }
 
 .plan-switcher {
   width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 12px;
