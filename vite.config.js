@@ -1,6 +1,7 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
+import { configDefaults } from 'vitest/config';
 
 export default defineConfig({
   base: '/reps/',
@@ -33,5 +34,6 @@ export default defineConfig({
   test: {
     environment: 'happy-dom',
     setupFiles: ['./src/test/setup.js'],
+    exclude: [...configDefaults.exclude, 'e2e/**'],
   },
 });

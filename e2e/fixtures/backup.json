@@ -1,0 +1,67 @@
+{
+  "app": "reps",
+  "version": 1,
+  "exportedAt": "2026-10-01T18:00:00.000Z",
+  "plans": {
+    "activePlanId": "torso-pierna",
+    "plans": [
+      {
+        "id": "torso-pierna",
+        "name": "Torso / Pierna",
+        "days": [
+          {
+            "id": "torso",
+            "label": "Torso",
+            "color": "#3b82f6",
+            "exercises": [
+              { "id": "press", "name": "Press inclinado", "sets": 3, "reps": "8", "allowBW": false, "notes": "" },
+              { "id": "remo", "name": "Remo en polea", "sets": 3, "reps": "10", "allowBW": false, "notes": "" }
+            ]
+          },
+          {
+            "id": "pierna",
+            "label": "Pierna",
+            "color": "#a855f7",
+            "exercises": [
+              { "id": "prensa", "name": "Prensa", "sets": 4, "reps": "10", "allowBW": false, "notes": "Pies a la anchura de los hombros" }
+            ]
+          }
+        ]
+      },
+      {
+        "id": "cinco-por-cinco",
+        "name": "Fuerza 5×5",
+        "days": [
+          {
+            "id": "dia-a",
+            "label": "Día A",
+            "color": "#ef4444",
+            "exercises": [
+              { "id": "sentadilla", "name": "Sentadilla", "sets": 5, "reps": "5", "allowBW": false, "notes": "" }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "sessions": [
+    {
+      "planId": "torso-pierna",
+      "dayId": "torso",
+      "date": "2026-09-29T18:30:00.000Z",
+      "exercises": {
+        "press": {
+          "1": { "weight": "30", "reps": "8", "done": true },
+          "2": { "weight": "30", "reps": "8", "done": true },
+          "3": { "weight": "30", "reps": "7", "done": true }
+        },
+        "remo": {
+          "1": { "weight": "45", "reps": "10", "done": true },
+          "2": { "weight": "45", "reps": "10", "done": true },
+          "3": { "weight": "45", "reps": "9", "done": true }
+        }
+      },
+      "notes": { "press": "Subir a 32,5 la próxima" }
+    }
+  ]
+}

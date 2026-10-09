@@ -45,7 +45,8 @@ Requires Node 22 (`nvm use`).
 ```bash
 npm install
 npm run dev      # http://localhost:5173/reps/
-npm test         # Vitest
+npm test         # unit and component tests (Vitest)
+npm run test:e2e # end-to-end tests (Playwright); first run: npx playwright install chromium
 npm run lint
 npm run build && npm run preview
 ```
@@ -61,7 +62,8 @@ Issues and pull requests are welcome.
 - PR titles must follow [Conventional Commits](https://www.conventionalcommits.org/)
   (`feat: …`, `fix: …`, `docs: …`), because the title becomes the commit
   message on `main`.
-- CI runs lint, tests and build on every PR.
+- CI runs lint, unit tests, the build and end-to-end tests on every PR; a
+  failing check blocks the merge and the deploy.
 - Report security issues privately — see [SECURITY.md](SECURITY.md).
 
 ## License

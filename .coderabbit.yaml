@@ -28,6 +28,11 @@ reviews:
         seguridad. Prioriza cualquier riesgo de pérdida o corrupción de datos
         del usuario, cambios incompatibles en el formato guardado y casos sin
         test.
+    - path: "e2e/**"
+      instructions: >-
+        Tests de extremo a extremo con Playwright. Los fixtures deben ser datos
+        inventados, nunca datos reales de entrenos. Usa las esperas automáticas
+        de Playwright (expect, waitForEvent) en lugar de tiempos fijos.
     - path: ".github/workflows/**"
       instructions: >-
         Las actions deben ir fijadas por SHA completo con la versión en un
