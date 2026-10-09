@@ -17,8 +17,8 @@ Reps is a web app that installs like a native one and works offline.
 - **iPhone (Safari):** Share → Add to Home Screen
 - **Android (Chrome):** menu ⋮ → Install app
 
-Install it: on iPhone, browsers may clear data of websites you haven't opened
-in a while, but not of installed apps.
+Installing it also protects your data: on iPhone, Safari may clear the data
+of websites you haven't opened in a while, but installed apps are exempt.
 
 ## Your data
 
