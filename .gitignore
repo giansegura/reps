@@ -28,3 +28,6 @@ dist-ssr
 dev-dist
 .playwright-mcp
 docs/superpowers
+/test-results/
+/playwright-report/
+/blob-report/
