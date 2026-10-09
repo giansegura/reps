@@ -1,10 +1,12 @@
 # Reps
 
+[![CI](https://github.com/GianSegura/reps/actions/workflows/ci.yml/badge.svg)](https://github.com/GianSegura/reps/actions/workflows/ci.yml)
+
 **Log your sets. Next time, you'll know what you lifted.**
 
 Reps is a tiny workout logger. Pick today's day, and every exercise is
 pre-filled with the weight and reps from last time. No ads, no account, no
-subscription, no tracking — your data never leaves your device.
+subscription, no tracking — your data stays on your device.
 
 **Open it:** https://giansegura.github.io/reps/
 
@@ -60,6 +62,7 @@ Issues and pull requests are welcome.
   (`feat: …`, `fix: …`, `docs: …`), because the title becomes the commit
   message on `main`.
 - CI runs lint, tests and build on every PR.
+- Report security issues privately — see [SECURITY.md](SECURITY.md).
 
 ## License
 
