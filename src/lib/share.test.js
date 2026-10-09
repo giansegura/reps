@@ -9,11 +9,13 @@ const touchDevice = (share) => {
 };
 
 beforeEach(() => {
-  vi.stubGlobal('URL', { createObjectURL: vi.fn(() => 'blob:x'), revokeObjectURL: vi.fn() });
+  vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+  vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
 });
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 describe('shareOrDownload', () => {

@@ -26,12 +26,8 @@ const readJSON = (key) => parseJSON(readRaw(key));
 
 const keepCorruptCopy = (key, raw, onCorrupt) => {
   const copyKey = `${key}-corrupt`;
-  try {
-    if (localStorage.getItem(copyKey) === raw) return;
-    localStorage.setItem(copyKey, raw);
-  } catch {
-    return;
-  }
+  if (localStorage.getItem(copyKey) === raw) return;
+  localStorage.setItem(copyKey, raw);
   onCorrupt?.();
 };
 

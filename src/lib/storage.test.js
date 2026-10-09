@@ -113,6 +113,28 @@ describe('sesiones', () => {
   });
 });
 
+describe('copia de datos dañados', () => {
+  const failingCopy = () => {
+    const setItem = localStorage.setItem;
+    localStorage.setItem = (key, value) => {
+      if (key.endsWith('-corrupt')) throw new Error('QuotaExceededError');
+      setItem(key, value);
+    };
+  };
+
+  it('no descarta planes dañados si no puede guardar la copia', async () => {
+    localStorage.setItem('reps-plans', '{roto');
+    failingCopy();
+    await expect(loadPlans()).rejects.toThrow('QuotaExceededError');
+  });
+
+  it('no descarta sesiones dañadas si no puede guardar la copia', async () => {
+    localStorage.setItem('reps-sessions', '[null]');
+    failingCopy();
+    await expect(loadSessions()).rejects.toThrow('QuotaExceededError');
+  });
+});
+
 describe('collectRawData', () => {
   it('reúne en crudo solo las claves de Reps', () => {
     localStorage.setItem('reps-plans', '{roto');
