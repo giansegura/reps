@@ -4,9 +4,50 @@ reviews:
   profile: chill
   request_changes_workflow: false
   high_level_summary: true
+  high_level_summary_in_walkthrough: true
   poem: false
+  in_progress_fortune: false
   auto_review:
     enabled: true
     drafts: false
+  pre_merge_checks:
+    docstrings:
+      mode: "off"
+    title:
+      mode: "off"
+  path_instructions:
+    - path: "src/**/*.{js,jsx}"
+      instructions: >-
+        Convenciones del proyecto: sin comentarios en el código, funciones
+        nuevas como const arrow functions, y textos de la interfaz en español
+        con tildes correctas. No hay servidor ni peticiones a terceros: señala
+        cualquier fetch, analítica o recurso externo.
+    - path: "src/lib/**"
+      instructions: >-
+        Aquí vive la persistencia (localStorage) y el formato de las copias de
+        seguridad. Prioriza cualquier riesgo de pérdida o corrupción de datos
+        del usuario, cambios incompatibles en el formato guardado y casos sin
+        test.
+    - path: ".github/workflows/**"
+      instructions: >-
+        Las actions deben ir fijadas por SHA completo con la versión en un
+        comentario, con permisos mínimos por job y persist-credentials: false.
+        Los workflows de checks obligatorios (ci, pr-title) no deben llevar
+        filtros de paths.
+  tools:
+    actionlint:
+      enabled: true
+    zizmor:
+      enabled: true
+    eslint:
+      enabled: true
+    markdownlint:
+      enabled: true
+    yamllint:
+      enabled: true
+    gitleaks:
+      enabled: true
+    osvScanner:
+      enabled: true
 chat:
   auto_reply: true
