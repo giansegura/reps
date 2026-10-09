@@ -1,13 +1,34 @@
-import { PALETTE } from '../lib/plan.js';
+import { useState } from 'react';
+import { MAX_SETS, PALETTE, parseSets } from '../lib/plan.js';
+
+const SetsInput = ({ exercise, onChange }) => {
+  const [draft, setDraft] = useState(null);
+
+  const onInput = (value) => {
+    setDraft(value);
+    const sets = parseSets(value);
+    if (sets !== null && sets !== exercise.sets) onChange(sets);
+  };
+
+  return (
+    <input
+      className="field-input narrow"
+      type="number"
+      inputMode="numeric"
+      min="1"
+      max={MAX_SETS}
+      aria-label={`Series de ${exercise.name || 'ejercicio'}`}
+      value={draft ?? exercise.sets}
+      onInput={(e) => onInput(e.target.value)}
+      onChange={() => {}}
+      onBlur={() => setDraft(null)}
+    />
+  );
+};
 
 export function PlanDay({ day, onBack, onUpdateDay, onAddExercise, onUpdateExercise, onRemoveExercise, onMoveExercise }) {
   const confirmRemove = (ex) => {
     if (confirm(`¿Borrar "${ex.name || 'este ejercicio'}"?`)) onRemoveExercise(ex.id);
-  };
-
-  const onSetsChange = (exId, value) => {
-    const n = parseInt(value, 10);
-    onUpdateExercise(exId, { sets: Number.isNaN(n) || n < 1 ? 1 : n });
   };
 
   return (
@@ -74,14 +95,9 @@ export function PlanDay({ day, onBack, onUpdateDay, onAddExercise, onUpdateExerc
               <button className="icon-btn danger" aria-label="Borrar ejercicio" onClick={() => confirmRemove(ex)}>✕</button>
             </div>
             <div className="ex-edit-grid">
-              <input
-                className="field-input narrow"
-                type="number"
-                inputMode="numeric"
-                min="1"
-                value={ex.sets}
-                onInput={(e) => onSetsChange(ex.id, e.target.value)}
-                onChange={() => {}}
+              <SetsInput
+                exercise={ex}
+                onChange={(sets) => onUpdateExercise(ex.id, { sets })}
               />
               <input
                 className="field-input"

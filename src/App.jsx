@@ -11,7 +11,7 @@ import {
   requestPersistence,
 } from './lib/storage.js';
 import { normalizeSessions, replaceSession } from './lib/session.js';
-import { backupFileName, createBackup, parseBackup } from './lib/backup.js';
+import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
 import { shareOrDownload } from './lib/share.js';
 import {
   createDay,
@@ -35,7 +35,6 @@ import {
   updatePlanDays,
   getActivePlan,
   findPlanByDay,
-  isValidPlansState,
 } from './lib/plans.js';
 import { Home } from './components/Home.jsx';
 import { Workout } from './components/Workout.jsx';
@@ -57,11 +56,11 @@ export default function App() {
   const [currentNotes, setCurrentNotes] = useState({});
   const [editingDayId, setEditingDayId] = useState(null);
   const [ready, setReady] = useState(false);
+  const [loadError, setLoadError] = useState(null);
   const [toast, setToast] = useState({ msg: '', visible: false });
 
   const toastTimer = useRef(null);
   const mountedRef = useRef(false);
-  const planSaveTimer = useRef(null);
 
   const showToast = (msg) => {
     setToast({ msg, visible: true });
@@ -93,22 +92,9 @@ export default function App() {
     });
   };
 
-  const flushPlans = () => {
-    if (!planSaveTimer.current) return;
-    clearTimeout(planSaveTimer.current.id);
-    const pending = planSaveTimer.current.state;
-    planSaveTimer.current = null;
-    persistPlans(pending);
-  };
-
   const commitPlans = (nextState) => {
     setPlansState(nextState);
-    if (planSaveTimer.current) clearTimeout(planSaveTimer.current.id);
-    const id = setTimeout(() => {
-      planSaveTimer.current = null;
-      persistPlans(nextState);
-    }, 500);
-    planSaveTimer.current = { id, state: nextState };
+    persistPlans(nextState);
   };
 
   const commitDays = (nextDays) =>
@@ -126,7 +112,6 @@ export default function App() {
   };
 
   const closePlan = () => {
-    flushPlans();
     setEditingPlanId(null);
     setView(planReturnView);
   };
@@ -163,15 +148,8 @@ export default function App() {
   };
 
   const closePlanDay = () => {
-    flushPlans();
     setEditingDayId(null);
     setView('planList');
-  };
-
-  const cancelPendingPlanSave = () => {
-    if (!planSaveTimer.current) return;
-    clearTimeout(planSaveTimer.current.id);
-    planSaveTimer.current = null;
   };
 
   const exportData = async () => {
@@ -187,7 +165,7 @@ export default function App() {
   };
 
   const importData = async (file) => {
-    const result = parseBackup(await file.text());
+    const result = await readBackupFile(file);
     if (!result.ok) {
       showToast('✗ Archivo no válido');
       return;
@@ -196,9 +174,7 @@ export default function App() {
     const sessionCount = result.sessions.length;
     const summary = `${planCount} ${planCount === 1 ? 'plan' : 'planes'} y ${sessionCount} ${sessionCount === 1 ? 'entreno' : 'entrenos'}`;
     if (!confirm(`Se reemplazarán tus datos por ${summary}. ¿Continuar?`)) return;
-    cancelPendingPlanSave();
-    setPlansState(result.plans);
-    persistPlans(result.plans);
+    commitPlans(result.plans);
     persistSessions(normalizeSessions(result.sessions, result.plans));
     setView('home');
     showToast('✓ Datos importados');
@@ -209,8 +185,10 @@ export default function App() {
     mountedRef.current = true;
     requestPersistence();
     (async () => {
-      const [loadedSessions, loadedPlans] = await Promise.all([loadSessions(), loadPlans()]);
-      let activeState = isValidPlansState(loadedPlans) ? loadedPlans : DEFAULT_PLANS;
+      let corrupt = false;
+      const onCorrupt = () => { corrupt = true; };
+      const [loadedSessions, loadedPlans] = await Promise.all([loadSessions({ onCorrupt }), loadPlans({ onCorrupt })]);
+      let activeState = loadedPlans ?? DEFAULT_PLANS;
       const normalized = normalizeSessions(loadedSessions, activeState);
       setSessions(normalized);
       if (normalized.length !== loadedSessions.length) {
@@ -233,7 +211,8 @@ export default function App() {
       }
       setPlansState(activeState);
       setReady(true);
-    })();
+      if (corrupt) showToast('⚠ Había datos dañados: se ha guardado una copia aparte');
+    })().catch(setLoadError);
   }, []);
 
   const startWorkout = (day) => {
@@ -314,6 +293,8 @@ export default function App() {
     setCurrentWorkout({});
     setCurrentNotes({});
   };
+
+  if (loadError) throw loadError;
 
   if (!ready) {
     return <div className="app" />;

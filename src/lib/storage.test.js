@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
   clearWIP,
+  collectRawData,
   dismissInstallHint,
   isInstallHintDismissed,
   loadPlans,
@@ -18,6 +19,8 @@ const createFakeStorage = () => {
     getItem: (key) => (data.has(key) ? data.get(key) : null),
     setItem: (key, value) => { data.set(key, String(value)); },
     removeItem: (key) => { data.delete(key); },
+    key: (index) => [...data.keys()][index] ?? null,
+    get length() { return data.size; },
   };
 };
 
@@ -56,6 +59,23 @@ describe('planes', () => {
     localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
     await expect(savePlans(plans)).rejects.toThrow('QuotaExceededError');
   });
+
+  it('descarta planes con estructura inválida y guarda una copia aparte', async () => {
+    const raw = '{"activePlanId":"p1","plans":[{"id":"p1"}]}';
+    const onCorrupt = vi.fn();
+    localStorage.setItem('reps-plans', raw);
+    expect(await loadPlans({ onCorrupt })).toBeNull();
+    expect(localStorage.getItem('reps-plans-corrupt')).toBe(raw);
+    expect(onCorrupt).toHaveBeenCalledOnce();
+  });
+
+  it('avisa una sola vez de la misma copia dañada', async () => {
+    const onCorrupt = vi.fn();
+    localStorage.setItem('reps-plans', '{roto');
+    await loadPlans({ onCorrupt });
+    await loadPlans({ onCorrupt });
+    expect(onCorrupt).toHaveBeenCalledOnce();
+  });
 });
 
 describe('sesiones', () => {
@@ -80,6 +100,24 @@ describe('sesiones', () => {
   it('rechaza si setItem lanza', async () => {
     localStorage.setItem = () => { throw new Error('QuotaExceededError'); };
     await expect(saveSessions([])).rejects.toThrow('QuotaExceededError');
+  });
+
+  it('conserva las sesiones válidas y guarda una copia de las dañadas', async () => {
+    const valid = { planId: 'p1', dayId: 'd1', date: 'x', exercises: {} };
+    const raw = JSON.stringify([valid, null, { dayId: 5 }]);
+    const onCorrupt = vi.fn();
+    localStorage.setItem('reps-sessions', raw);
+    expect(await loadSessions({ onCorrupt })).toEqual([valid]);
+    expect(localStorage.getItem('reps-sessions-corrupt')).toBe(raw);
+    expect(onCorrupt).toHaveBeenCalledOnce();
+  });
+});
+
+describe('collectRawData', () => {
+  it('reúne en crudo solo las claves de Reps', () => {
+    localStorage.setItem('reps-plans', '{roto');
+    localStorage.setItem('otra-app', 'x');
+    expect(collectRawData()).toEqual({ 'reps-plans': '{roto' });
   });
 });
 

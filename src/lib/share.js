@@ -16,7 +16,6 @@ export const shareOrDownload = async (file) => {
       return 'shared';
     } catch (e) {
       if (e?.name === 'AbortError') return 'cancelled';
-      throw e;
     }
   }
   download(file);

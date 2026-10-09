@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { backupFileName, createBackup, parseBackup } from './backup.js';
+import { backupFileName, createBackup, parseBackup, readBackupFile } from './backup.js';
 
 const plans = {
   activePlanId: 'p1',
@@ -102,5 +102,17 @@ describe('parseBackup', () => {
     ['nota de sesión no texto', toText({ sessions: [{ ...sessions[0], notes: { e1: {} } }] })],
   ])('rechaza %s', (_label, text) => {
     expect(parseBackup(text)).toEqual({ ok: false });
+  });
+});
+
+describe('readBackupFile', () => {
+  it('lee y valida el archivo', async () => {
+    const file = new File([toText()], 'reps.json');
+    expect(await readBackupFile(file)).toEqual({ ok: true, plans, sessions });
+  });
+
+  it('devuelve ok:false si no se puede leer', async () => {
+    const file = { text: () => Promise.reject(new Error('NotReadableError')) };
+    expect(await readBackupFile(file)).toEqual({ ok: false });
   });
 });

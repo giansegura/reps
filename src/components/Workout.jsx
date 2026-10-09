@@ -40,6 +40,10 @@ const playAlert = () => {
   });
 };
 
+const INTERACTIVE = 'input, textarea, select, button, a, [contenteditable="true"], [role="dialog"]';
+
+const isInteractive = (target) => target instanceof Element && !!target.closest(INTERACTIVE);
+
 const WorkoutTimer = () => {
   const [elapsed, setElapsed] = useState(0);
 
@@ -66,7 +70,7 @@ const RestTimer = () => {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.code !== 'Space' || e.repeat) return;
+      if (e.code !== 'Space' || e.repeat || isInteractive(e.target)) return;
       e.preventDefault();
       restart();
     };
@@ -125,6 +129,9 @@ export function Workout({
   const [editingNoteExercise, setEditingNoteExercise] = useState(null);
   const closeNotes = useCallback(() => setNotesExercise(null), []);
   const closeNoteEditor = useCallback(() => setEditingNoteExercise(null), []);
+  const confirmExit = () => {
+    if (confirm('¿Salir sin guardar? Se perderá este entreno.')) onExit();
+  };
   const total = activeDay.exercises.reduce((sum, ex) => sum + ex.sets, 0);
   const completed = activeDay.exercises.reduce(
     (sum, ex) => sum + countDone(currentWorkout[ex.id] || {}),
@@ -135,7 +142,7 @@ export function Workout({
     <>
       <div className="workout-header">
         <div className="workout-header-side">
-          <button className="back-btn" onClick={onExit}>← Salir</button>
+          <button className="back-btn" onClick={confirmExit}>← Salir</button>
           <button
             className="save-btn"
             aria-label={`Guardar entreno, ${completed} de ${total} series`}

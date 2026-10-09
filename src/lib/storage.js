@@ -1,31 +1,62 @@
+import { isValidPlans, isValidSession } from './schema.js';
+
+const PREFIX = 'reps-';
 const PLANS_KEY = 'reps-plans';
 const SESSIONS_KEY = 'reps-sessions';
 const WIP_KEY = 'reps-wip';
 const INSTALL_HINT_KEY = 'reps-install-hint';
 
-const readJSON = (key) => {
+const readRaw = (key) => {
   try {
-    const raw = localStorage.getItem(key);
+    return localStorage.getItem(key);
+  } catch {
+    return null;
+  }
+};
+
+const parseJSON = (raw) => {
+  try {
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
   }
 };
 
+const readJSON = (key) => parseJSON(readRaw(key));
+
+const keepCorruptCopy = (key, raw, onCorrupt) => {
+  const copyKey = `${key}-corrupt`;
+  try {
+    if (localStorage.getItem(copyKey) === raw) return;
+    localStorage.setItem(copyKey, raw);
+  } catch {
+    return;
+  }
+  onCorrupt?.();
+};
+
 const writeJSON = async (key, data) => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
-export const loadSessions = async () => {
-  const data = readJSON(SESSIONS_KEY);
-  return Array.isArray(data) ? data : [];
+export const loadSessions = async ({ onCorrupt } = {}) => {
+  const raw = readRaw(SESSIONS_KEY);
+  if (!raw) return [];
+  const data = parseJSON(raw);
+  const sessions = Array.isArray(data) ? data.filter(isValidSession) : [];
+  if (!Array.isArray(data) || sessions.length !== data.length) keepCorruptCopy(SESSIONS_KEY, raw, onCorrupt);
+  return sessions;
 };
 
 export const saveSessions = (sessions) => writeJSON(SESSIONS_KEY, sessions);
 
-export const loadPlans = async () => {
-  const data = readJSON(PLANS_KEY);
-  return data && typeof data === 'object' && Array.isArray(data.plans) ? data : null;
+export const loadPlans = async ({ onCorrupt } = {}) => {
+  const raw = readRaw(PLANS_KEY);
+  if (!raw) return null;
+  const data = parseJSON(raw);
+  if (isValidPlans(data)) return data;
+  keepCorruptCopy(PLANS_KEY, raw, onCorrupt);
+  return null;
 };
 
 export const savePlans = (state) => writeJSON(PLANS_KEY, state);
@@ -70,4 +101,17 @@ export const requestPersistence = () => {
   } catch {
     return;
   }
+};
+
+export const collectRawData = () => {
+  const data = {};
+  try {
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(PREFIX)) data[key] = localStorage.getItem(key);
+    }
+  } catch {
+    return data;
+  }
+  return data;
 };

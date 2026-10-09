@@ -3,6 +3,13 @@ export const PALETTE = [
   '#a855f7', '#ec4899', '#14b8a6', '#ef4444',
 ];
 
+export const MAX_SETS = 100;
+
+export const parseSets = (value) => {
+  const n = Number(value);
+  return value !== '' && Number.isInteger(n) && n >= 1 && n <= MAX_SETS ? n : null;
+};
+
 const nextColor = (plan) => {
   const used = new Set(plan.map(d => d.color));
   return PALETTE.find(c => !used.has(c)) || PALETTE[plan.length % PALETTE.length];
