@@ -6,7 +6,7 @@
 
 Reps is a tiny workout logger. Pick today's day, and every exercise is
 pre-filled with the weight and reps from last time. No ads, no account, no
-subscription, no tracking — your data never leaves your device.
+subscription, no tracking — your data stays on your device.
 
 **Open it:** https://giansegura.github.io/reps/
 

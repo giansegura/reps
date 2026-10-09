@@ -1,7 +1,8 @@
 # Security Policy
 
-Reps runs entirely in the browser: there is no server, no account and no
-data leaves your device. Security issues are still taken seriously.
+Reps runs entirely in the browser: there is no server and no account, and
+your data stays on your device unless you export or share a backup yourself.
+Security issues are still taken seriously.
 
 ## Reporting a vulnerability
 
