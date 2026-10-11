@@ -3,7 +3,7 @@ import { expect, test } from './test.js';
 test('la landing explica Reps y lleva a la app', async ({ page }) => {
   await page.goto('./');
   await expect(page).toHaveTitle(/Reps/);
-  await expect(page.getByRole('heading', { level: 1 })).toContainText('62,5 hoy');
+  await expect(page.getByRole('heading', { level: 1 })).toContainText('Apunta lo que levantas');
   await page.getByRole('link', { name: 'Empezar →' }).click();
   await expect(page).toHaveURL(/\/reps\/app\/$/);
   await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();

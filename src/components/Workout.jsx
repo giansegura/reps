@@ -140,39 +140,41 @@ export function Workout({
 
   return (
     <>
-      <div className="workout-header">
-        <div className="workout-header-side">
-          <button className="back-btn" onClick={confirmExit}>← Salir</button>
-          <button
-            className="save-btn"
-            aria-label={`Guardar entreno, ${completed} de ${total} series`}
-            disabled={completed === 0}
-            onClick={onFinish}
-          >
-            <span className="save-btn-icon" aria-hidden="true">✓</span>
-            <span className="save-btn-label">Guardar</span>
-            <span className="save-btn-count">{completed}/{total}</span>
-          </button>
+      <div className="workout-top">
+        <div className="workout-header">
+          <div className="workout-header-side">
+            <button className="back-btn" onClick={confirmExit}>← Salir</button>
+            <button
+              className="save-btn"
+              aria-label={`Guardar entreno, ${completed} de ${total} series`}
+              disabled={completed === 0}
+              onClick={onFinish}
+            >
+              <span className="save-btn-icon" aria-hidden="true">✓</span>
+              <span className="save-btn-label">Guardar</span>
+              <span className="save-btn-count">{completed}/{total}</span>
+            </button>
+          </div>
+          <div className="timer-slot">
+            <WorkoutTimer />
+            <RestTimer />
+          </div>
+          <div className="workout-header-side end">
+            <span className="day-id">
+              <span className="dot" style={{ background: activeDay.color }} />
+              <span className="day-label">{activeDay.label}</span>
+            </span>
+          </div>
         </div>
-        <div className="timer-slot">
-          <WorkoutTimer />
-          <RestTimer />
+        <div className="progress-container">
+          <div className="progress-bar">
+            <div
+              className="progress-fill"
+              style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%`, background: activeDay.color }}
+            />
+          </div>
+          <span className="progress-text" aria-live="polite">{completed}/{total}</span>
         </div>
-        <div className="workout-header-side end">
-          <span className="day-id">
-            <span className="dot" style={{ background: activeDay.color }} />
-            <span className="day-label">{activeDay.label}</span>
-          </span>
-        </div>
-      </div>
-      <div className="progress-container">
-        <div className="progress-bar">
-          <div
-            className="progress-fill"
-            style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%`, background: activeDay.color }}
-          />
-        </div>
-        <span className="progress-text" aria-live="polite">{completed}/{total}</span>
       </div>
       <div className="workout-exercises">
         {activeDay.exercises.map((ex, i) => {
