@@ -55,4 +55,7 @@ test('en móvil la cabecera del entreno se queda fija al hacer scroll', async ({
   await expect(page.getByRole('button', { name: '← Salir' })).toBeInViewport();
   await expect(page.locator('.workout-timer')).toBeInViewport();
   await expect(page.locator('.day-label')).toBeInViewport();
+  const weight = page.locator('.exercise-block').nth(2).locator('.set-row').first().getByRole('spinbutton', { name: /peso/ });
+  await weight.focus();
+  await expect.poll(async () => (await weight.boundingBox()).y).toBeGreaterThanOrEqual(header.y + header.height);
 });
