@@ -44,3 +44,15 @@ test('salir pide confirmación antes de descartar el entreno', async ({ page }) 
   await page.getByRole('button', { name: '← Salir' }).click();
   await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();
 });
+
+test('en móvil la cabecera del entreno se queda fija al hacer scroll', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 664 });
+  await startFirstDay(page);
+  await page.locator('.exercise-block').last().scrollIntoViewIfNeeded();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(200);
+  const header = await page.locator('.workout-top').boundingBox();
+  expect(header.y).toBe(0);
+  await expect(page.getByRole('button', { name: '← Salir' })).toBeInViewport();
+  await expect(page.locator('.workout-timer')).toBeInViewport();
+  await expect(page.locator('.day-label')).toBeInViewport();
+});

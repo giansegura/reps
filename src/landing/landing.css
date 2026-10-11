@@ -119,6 +119,7 @@ h1, h2, h3, p { margin: 0; }
   line-height: 0.86;
   letter-spacing: -0.01em;
   text-transform: uppercase;
+  text-wrap: balance;
 }
 
 .hero-lead { max-width: 30em; font-size: 22px; }

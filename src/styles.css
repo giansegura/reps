@@ -118,6 +118,12 @@ button:disabled { cursor: not-allowed; }
 .last-session { display: block; margin-top: 12px; font-size: 11px; color: var(--fg-3); }
 
 /* Workout header */
+:root:has(.workout-top) { scroll-padding-top: 112px; }
+.workout-top {
+  position: sticky; top: 0; z-index: 10;
+  margin: -12px -20px 14px; padding: 12px 20px 14px;
+  background: var(--bg);
+}
 .workout-header {
   display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
   align-items: center; gap: 12px; margin-bottom: 18px;
@@ -163,7 +169,7 @@ button:disabled { cursor: not-allowed; }
 .save-btn-count { font-family: var(--mono); font-variant-numeric: tabular-nums; font-size: 12px; opacity: 0.55; }
 
 /* Progress */
-.progress-container { display: flex; align-items: center; gap: 12px; margin-bottom: 28px; }
+.progress-container { display: flex; align-items: center; gap: 12px; }
 .progress-bar { flex: 1; height: 2px; background: var(--line-2); border-radius: 1px; overflow: hidden; }
 .progress-fill { height: 100%; transition: width 0.3s ease; }
 .progress-text {
