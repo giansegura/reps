@@ -3,7 +3,7 @@ import { expect, test } from './test.js';
 const firstSet = (page) => page.locator('.set-row').first();
 
 const startFirstDay = async (page) => {
-  await page.goto('./');
+  await page.goto('./app/');
   await page.locator('.day-card').first().click();
   await expect(page.getByRole('button', { name: '← Salir' })).toBeVisible();
 };

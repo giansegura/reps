@@ -3,15 +3,159 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#000000" />
-    <meta name="description" content="Apunta tus series y la próxima vez sabrás cuánto levantaste." />
-    <meta name="apple-mobile-web-app-title" content="Reps" />
+    <meta name="theme-color" content="#ecebe7" />
+    <meta name="description" content="Reps apunta tus series y, la próxima vez, te enseña cuánto levantaste. Gratis, sin cuenta y sin anuncios." />
     <link rel="icon" href="/icon.svg" type="image/svg+xml" />
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
-    <title>Reps</title>
+    <title>Reps · Apunta tus series</title>
+    <script>
+      if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true) {
+        window.location.replace('app/');
+      }
+    </script>
+    <link rel="stylesheet" href="/src/landing/landing.css" />
   </head>
   <body>
-    <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <div class="page">
+      <header class="top">
+        <span class="logo" translate="no">REPS</span>
+        <nav class="nav" aria-label="Principal">
+          <a href="#como">Cómo funciona</a>
+          <a href="#datos">Tus datos</a>
+          <a class="nav-cta" href="app/">Abrir la app</a>
+        </nav>
+      </header>
+
+      <main class="main">
+        <section class="hero">
+          <div class="hero-copy">
+            <p class="hero-before">60 kg la última vez.</p>
+            <h1 class="hero-title">62,5 hoy.</h1>
+            <p class="hero-lead">Reps apunta tus series y, cuando vuelves al mismo día, te enseña cuánto levantaste. Cada ejercicio llega relleno con el peso y las repeticiones de tu última sesión.</p>
+            <div class="hero-actions">
+              <a class="cta" href="app/">Empezar →</a>
+              <span class="hero-note">Gratis. Sin cuenta. Sin anuncios.</span>
+            </div>
+          </div>
+
+          <div class="phone" role="img" aria-label="La pantalla de entreno de Reps con las series de la sentadilla ya rellenas">
+            <div class="phone-screen" aria-hidden="true">
+              <div class="phone-bar">
+                <span class="muted">← Salir</span>
+                <span class="mono muted">34:12</span>
+                <span class="phone-day"><span class="dot"></span>Día 1</span>
+              </div>
+              <div class="progress"><div class="progress-fill"></div></div>
+              <div class="ex">
+                <div class="ex-head"><span>1 · Sentadilla</span><span class="mono muted small">1.000 kg</span></div>
+                <div class="sets">
+                  <span class="muted">1</span><span class="cell">62,5</span><span class="cell">8</span><span class="check done">✓</span>
+                  <span class="muted">2</span><span class="cell">62,5</span><span class="cell">8</span><span class="check done">✓</span>
+                  <span class="muted">3</span><span class="cell prev">60</span><span class="cell prev">8</span><span class="check"></span>
+                </div>
+              </div>
+              <div class="ex">
+                <div class="ex-head"><span>2 · Press de banca</span></div>
+                <div class="sets">
+                  <span class="muted">1</span><span class="cell prev">45</span><span class="cell prev">8</span><span class="check"></span>
+                </div>
+              </div>
+              <div class="rest"><span class="mono">01:24</span></div>
+            </div>
+          </div>
+        </section>
+
+        <div class="barbell" aria-hidden="true">
+          <span class="sleeve"></span>
+          <span class="plate p5"></span>
+          <span class="plate p10">10</span>
+          <span class="plate p15">15</span>
+          <span class="plate p20">20</span>
+          <span class="plate p25">25</span>
+          <span class="collar"></span>
+          <span class="shaft"></span>
+          <span class="collar"></span>
+          <span class="plate p25">25</span>
+          <span class="plate p20">20</span>
+          <span class="plate p15">15</span>
+          <span class="plate p10">10</span>
+          <span class="plate p5"></span>
+          <span class="sleeve"></span>
+        </div>
+
+        <section id="como" class="steps-section">
+          <h2 class="section-title">Así se usa</h2>
+          <ol class="steps">
+            <li class="step">
+              <span class="step-num red">1</span>
+              <strong>Elige el día</strong>
+              <span>Tus planes y tus días, en el orden en que entrenas.</span>
+            </li>
+            <li class="step">
+              <span class="step-num blue">2</span>
+              <strong>Supera la última vez</strong>
+              <span>Cada serie llega con su peso y sus reps. Cambia lo que hagas distinto.</span>
+            </li>
+            <li class="step">
+              <span class="step-num green">3</span>
+              <strong>Guarda</strong>
+              <span>La próxima vez que elijas ese día, saldrá con lo de hoy.</span>
+            </li>
+          </ol>
+        </section>
+
+        <section class="features" aria-label="Funciones">
+          <div class="feature red">
+            <h3>Notas por ejercicio</h3>
+            <p>Agarre, técnica, molestias. Te las recuerda la próxima vez.</p>
+          </div>
+          <div class="feature blue">
+            <h3>Varios planes</h3>
+            <p>Uno activo y el resto a mano. Duplica, reordena y edita.</p>
+          </div>
+          <div class="feature yellow">
+            <h3>Descanso con aviso</h3>
+            <p>Arranca el reloj entre series. Suena a los dos minutos.</p>
+          </div>
+          <div class="feature green">
+            <h3>Sin conexión</h3>
+            <p>Funciona sin cobertura. Si cierras la app, el entreno sigue ahí.</p>
+          </div>
+        </section>
+
+        <section id="datos" class="privacy">
+          <h2 class="privacy-title"><span>0 cuentas.</span> <span>0 anuncios.</span> <span>0 € al mes.</span></h2>
+          <div class="privacy-copy">
+            <p>Tus entrenos se guardan en tu móvil y no salen de ahí. No hay servidor que los lea.</p>
+            <p>Exporta una copia cuando quieras y llévatela a otro teléfono.</p>
+          </div>
+        </section>
+
+        <section class="install">
+          <div class="install-intro">
+            <h2 class="section-title small">Instálala</h2>
+            <p class="muted-text">Se abre como una app, sin tienda y sin descargas.</p>
+          </div>
+          <div class="install-card">
+            <strong>iPhone</strong>
+            <span>En Safari: Compartir → Añadir a pantalla de inicio.</span>
+          </div>
+          <div class="install-card">
+            <strong>Android</strong>
+            <span>En Chrome: menú ⋮ → Instalar app.</span>
+          </div>
+        </section>
+
+        <section class="closing">
+          <p class="closing-title">Tu próxima serie, ya apuntada.</p>
+          <a class="cta" href="app/">Abrir Reps →</a>
+        </section>
+      </main>
+
+      <footer class="footer">
+        <span>Gratis y de código abierto · licencia MIT</span>
+        <a href="https://github.com/GianSegura/reps">github.com/GianSegura/reps</a>
+      </footer>
+    </div>
   </body>
 </html>

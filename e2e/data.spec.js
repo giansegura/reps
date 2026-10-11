@@ -5,7 +5,7 @@ import { expect, test } from './test.js';
 const backupPath = path.join(import.meta.dirname, 'fixtures', 'backup.json');
 
 const openPlans = async (page) => {
-  await page.goto('./');
+  await page.goto('./app/');
   await page.locator('.plan-switcher').click();
   await expect(page.getByRole('heading', { name: 'Planes' })).toBeVisible();
 };
@@ -56,7 +56,7 @@ test('cancelar la importación no cambia nada', async ({ page }) => {
 });
 
 test('arranca con datos dañados y guarda una copia aparte', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./app/');
   await page.evaluate(() => {
     localStorage.setItem('reps-plans', '{"activePlanId":"x","plans":[{"id":"x"}]}');
     localStorage.setItem('reps-sessions', '[null]');
