@@ -8,7 +8,8 @@ Reps is a tiny workout logger. Pick today's day, and every exercise is
 pre-filled with the weight and reps from last time. No ads, no account, no
 subscription, no tracking — your data stays on your device.
 
-**Open it:** https://giansegura.github.io/reps/
+**Open it:** https://giansegura.github.io/reps/ (the app lives at
+https://giansegura.github.io/reps/app/)
 
 > The interface is in Spanish for now.
 
@@ -44,7 +45,7 @@ Requires Node 22 (`nvm use`).
 
 ```bash
 npm install
-npm run dev      # http://localhost:5173/reps/
+npm run dev      # landing at http://localhost:5173/reps/, app at /reps/app/
 npm test         # unit and component tests (Vitest)
 npm run test:e2e # end-to-end tests (Playwright); first run: npx playwright install chromium
 npm run lint
