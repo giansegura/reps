@@ -1,12 +1,13 @@
 import { useRef } from 'react';
+import { countSessions } from '../lib/session.js';
 
 export function Plans({ plans, activePlanId, sessions, onBack, onActivate, onEdit, onDuplicate, onRemove, onCreate, onExport, onImport }) {
   const fileInput = useRef(null);
 
   const confirmRemove = (plan) => {
-    const count = sessions.filter(s => s.planId === plan.id).length;
+    const count = countSessions(sessions, { planId: plan.id });
     const warning = count > 0
-      ? `Tienes entrenos guardados de ${count} ${count === 1 ? 'día' : 'días'} de este plan. Se conservarán en este dispositivo pero dejarán de mostrarse.`
+      ? `Tienes ${count} ${count === 1 ? 'entreno guardado' : 'entrenos guardados'} de este plan. Se conservarán en este dispositivo pero dejarán de mostrarse.`
       : '';
     if (confirm(`¿Borrar "${plan.name}"?\n\n${warning}`)) onRemove(plan.id);
   };

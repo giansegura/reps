@@ -35,7 +35,7 @@ describe('createBackup', () => {
   it('envuelve planes y sesiones con app, version y fecha', () => {
     expect(createBackup(plans, sessions, now)).toEqual({
       app: 'reps',
-      version: 1,
+      version: 2,
       exportedAt: now.toISOString(),
       plans,
       sessions,
@@ -69,6 +69,22 @@ describe('parseBackup', () => {
     expect(parseBackup(toText({ sessions: legacy })).ok).toBe(true);
   });
 
+  it('acepta copias de la versión 1 y las migra', () => {
+    const legacy = [
+      { dayId: 'd1', date: '2026-10-02T10:00:00.000Z', exercises: {} },
+      { dayId: 'd1', date: '2026-10-01T10:00:00.000Z', exercises: {} },
+    ];
+    const result = parseBackup(toText({ version: 1, sessions: legacy }));
+    expect(result.ok).toBe(true);
+    expect(result.sessions.map(s => s.date)).toEqual([legacy[1].date, legacy[0].date]);
+    expect(result.sessions.every(s => s.planId === 'p1' && s.notes)).toBe(true);
+  });
+
+  it('rechaza copias de una versión más nueva aunque su formato sea otro', () => {
+    expect(parseBackup(toText({ version: 3 }))).toEqual({ ok: false, reason: 'newer' });
+    expect(parseBackup(toText({ version: 3, plans: 'otro formato' }))).toEqual({ ok: false, reason: 'newer' });
+  });
+
   it('usa el primer plan si activePlanId no existe', () => {
     const result = parseBackup(toText({ plans: { ...plans, activePlanId: 'nope' } }));
     expect(result.ok).toBe(true);
@@ -80,7 +96,8 @@ describe('parseBackup', () => {
     ['null', 'null'],
     ['un array', '[]'],
     ['otra app', toText({ app: 'otra' })],
-    ['otra versión', toText({ version: 2 })],
+    ['versión 0', toText({ version: 0 })],
+    ['versión no entera', toText({ version: '2' })],
     ['sin planes', toText({ plans: { activePlanId: 'p1', plans: [] } })],
     ['sessions no array', toText({ sessions: {} })],
     ['plan sin days', toText({ plans: { activePlanId: 'p1', plans: [{ id: 'p1', name: 'X' }] } })],
@@ -101,7 +118,7 @@ describe('parseBackup', () => {
     ['notas de sesión no objeto', toText({ sessions: [{ ...sessions[0], notes: 'x' }] })],
     ['nota de sesión no texto', toText({ sessions: [{ ...sessions[0], notes: { e1: {} } }] })],
   ])('rechaza %s', (_label, text) => {
-    expect(parseBackup(text)).toEqual({ ok: false });
+    expect(parseBackup(text)).toEqual({ ok: false, reason: 'invalid' });
   });
 });
 
@@ -113,6 +130,6 @@ describe('readBackupFile', () => {
 
   it('devuelve ok:false si no se puede leer', async () => {
     const file = { text: () => Promise.reject(new Error('NotReadableError')) };
-    expect(await readBackupFile(file)).toEqual({ ok: false });
+    expect(await readBackupFile(file)).toEqual({ ok: false, reason: 'invalid' });
   });
 });

@@ -1,13 +1,5 @@
 import { Component } from 'react';
-import { collectRawData } from '../lib/storage.js';
-import { backupFileName } from '../lib/backup.js';
-import { shareOrDownload } from '../lib/share.js';
-
-const downloadRawData = () => {
-  const json = `${JSON.stringify(collectRawData(), null, 2)}\n`;
-  const name = backupFileName(new Date()).replace('reps-', 'reps-rescate-');
-  shareOrDownload(new File([json], name, { type: 'application/json' })).catch(console.error);
-};
+import { downloadRawData } from '../lib/rescue.js';
 
 export class ErrorBoundary extends Component {
   state = { error: null };

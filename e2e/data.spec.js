@@ -17,7 +17,7 @@ test('exporta una copia válida', async ({ page }) => {
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toMatch(/^reps-\d{4}-\d{2}-\d{2}\.json$/);
   const backup = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
-  expect(backup).toMatchObject({ app: 'reps', version: 1 });
+  expect(backup).toMatchObject({ app: 'reps', version: 2 });
   expect(backup.plans.plans[0].name).toBe('Full Body');
 });
 
