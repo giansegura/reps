@@ -6,7 +6,7 @@ import { PlanList } from './PlanList.jsx';
 const day = { id: 'd1', label: 'Día 1', color: '#000000', exercises: [] };
 
 const renderList = (sessions) => render(
-  <PlanList plan={[day]} planName="Full Body" sessions={sessions} onBack={vi.fn()} onRename={vi.fn()}
+  <PlanList plan={[day]} planId="p1" planName="Full Body" sessions={sessions} onBack={vi.fn()} onRename={vi.fn()}
     onOpenDay={vi.fn()} onAdd={vi.fn()} onRemove={vi.fn()} onMove={vi.fn()} />,
 );
 
@@ -16,8 +16,8 @@ afterEach(() => {
 
 describe('PlanList · borrar día', () => {
   it.each([
-    [[{ dayId: 'd1' }, { dayId: 'd1' }, { dayId: 'd2' }], 'Tienes 2 entrenos guardados de este día.'],
-    [[{ dayId: 'd1' }], 'Tienes 1 entreno guardado de este día.'],
+    [[{ planId: 'p1', dayId: 'd1' }, { planId: 'p1', dayId: 'd1' }, { planId: 'p2', dayId: 'd1' }, { planId: 'p1', dayId: 'd2' }], 'Tienes 2 entrenos guardados de este día.'],
+    [[{ planId: 'p1', dayId: 'd1' }, { planId: 'p2', dayId: 'd1' }], 'Tienes 1 entreno guardado de este día.'],
   ])('avisa de cuántos entrenos tiene', async (sessions, text) => {
     const confirm = vi.fn(() => false);
     vi.stubGlobal('confirm', confirm);

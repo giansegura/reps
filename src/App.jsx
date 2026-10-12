@@ -357,6 +357,7 @@ export default function App() {
         {view === 'planList' && editingPlan && (
           <PlanList
             plan={editingDays}
+            planId={editingPlanId}
             planName={editingPlan.name}
             sessions={sessions}
             onBack={closePlan}

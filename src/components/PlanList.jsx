@@ -1,8 +1,8 @@
 import { countSessions } from '../lib/session.js';
 
-export function PlanList({ plan, planName, sessions, onBack, onRename, onOpenDay, onAdd, onRemove, onMove }) {
+export function PlanList({ plan, planId, planName, sessions, onBack, onRename, onOpenDay, onAdd, onRemove, onMove }) {
   const confirmRemove = (day) => {
-    const count = countSessions(sessions, { dayId: day.id });
+    const count = countSessions(sessions, { planId, dayId: day.id });
     const warning = count > 0
       ? `Tienes ${count} ${count === 1 ? 'entreno guardado' : 'entrenos guardados'} de este día. Se conservarán en este dispositivo pero dejarán de mostrarse.`
       : '';

@@ -332,6 +332,24 @@ describe('loadData', () => {
     expect(localStorage.length).toBe(2);
   });
 
+  it('con una versión más nueva no toca su diario aunque devuelva una versión anterior', async () => {
+    const journal = JSON.stringify({ 'reps-version': '2', 'reps-sessions': '[]' });
+    localStorage.setItem('reps-version', '3');
+    localStorage.setItem('reps-sessions', '{"formato":"nuevo"}');
+    localStorage.setItem('reps-journal', journal);
+    expect(await loadData()).toEqual({ status: 'newer' });
+    expect(localStorage.getItem('reps-version')).toBe('3');
+    expect(localStorage.getItem('reps-sessions')).toBe('{"formato":"nuevo"}');
+    expect(localStorage.getItem('reps-journal')).toBe(journal);
+  });
+
+  it('con una versión más nueva no descarta un diario que no entiende', async () => {
+    localStorage.setItem('reps-version', '3');
+    localStorage.setItem('reps-journal', '{"formato":"nuevo"');
+    expect(await loadData()).toEqual({ status: 'newer' });
+    expect(localStorage.getItem('reps-journal')).toBe('{"formato":"nuevo"');
+  });
+
   it('restaura un diario pendiente antes de leer', async () => {
     localStorage.setItem('reps-version', '2');
     localStorage.setItem('reps-plans', '{a medias');

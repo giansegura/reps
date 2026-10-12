@@ -126,6 +126,7 @@ export const saveAllData = async ({ plans, sessions }) => {
 };
 
 export const loadData = async ({ onCorrupt } = {}) => {
+  if (isReadOnly()) return { status: 'newer' };
   recoverJournal({ onCorrupt });
   const version = readVersion();
   if (version === null) keepCorruptCopy(VERSION_KEY, readRaw(VERSION_KEY), onCorrupt);
