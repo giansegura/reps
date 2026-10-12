@@ -1,30 +1,12 @@
-import { findPlanByDay, getActivePlan } from './plans.js';
+export const appendSession = (sessions, session) => [...sessions, session];
 
-const withPlanId = (session, plansState, activePlanId) => ({
-  planId: session.planId || findPlanByDay(plansState, session.dayId)?.id || activePlanId,
-  dayId: session.dayId,
-  date: session.date,
-  exercises: session.exercises,
-  notes: session.notes || {},
-});
+export const latestSession = (sessions, planId, dayId) =>
+  sessions.reduce(
+    (latest, s) => (s.planId === planId && s.dayId === dayId && (!latest || s.date > latest.date) ? s : latest),
+    undefined,
+  );
 
-const sessionKey = (session) => `${session.planId}:${session.dayId}`;
+const matches = (session, { planId, dayId }) =>
+  (planId === undefined || session.planId === planId) && (dayId === undefined || session.dayId === dayId);
 
-const keepLatestPerDay = (sessions) => {
-  const latest = new Map();
-  sessions.forEach(s => {
-    const current = latest.get(sessionKey(s));
-    if (!current || s.date > current.date) latest.set(sessionKey(s), s);
-  });
-  return [...latest.values()];
-};
-
-export const normalizeSessions = (sessions, plansState) => {
-  const activePlanId = getActivePlan(plansState).id;
-  return keepLatestPerDay(sessions.map(s => withPlanId(s, plansState, activePlanId)));
-};
-
-export const replaceSession = (sessions, session) => [
-  ...sessions.filter(s => sessionKey(s) !== sessionKey(session)),
-  session,
-];
+export const countSessions = (sessions, filter) => sessions.filter(s => matches(s, filter)).length;

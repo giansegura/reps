@@ -1,16 +1,16 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PLANS } from './data/plan.js';
 import {
-  loadSessions,
+  loadData,
+  saveAllData,
   saveSessions,
   saveWIP,
   clearWIP,
   loadWIP,
-  loadPlans,
   savePlans,
   requestPersistence,
 } from './lib/storage.js';
-import { normalizeSessions, replaceSession } from './lib/session.js';
+import { appendSession, latestSession } from './lib/session.js';
 import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
 import { shareOrDownload } from './lib/share.js';
 import {
@@ -42,6 +42,7 @@ import { Plans } from './components/Plans.jsx';
 import { PlanList } from './components/PlanList.jsx';
 import { PlanDay } from './components/PlanDay.jsx';
 import { Toast } from './components/Toast.jsx';
+import { UpdateRequired } from './components/UpdateRequired.jsx';
 
 const isFilled = (value) => value !== '' && value !== undefined;
 
@@ -57,6 +58,7 @@ export default function App() {
   const [editingDayId, setEditingDayId] = useState(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
+  const [newerData, setNewerData] = useState(false);
   const [toast, setToast] = useState({ msg: '', visible: false });
 
   const toastTimer = useRef(null);
@@ -72,7 +74,6 @@ export default function App() {
 
   const activePlan = getActivePlan(plansState);
   const plan = activePlan.days;
-  const planSessions = sessions.filter(s => s.planId === activePlan.id);
   const editingPlan = plansState.plans.find(p => p.id === editingPlanId);
   const editingDays = editingPlan?.days ?? [];
   const editingDay = editingDays.find(d => d.id === editingDayId);
@@ -81,14 +82,6 @@ export default function App() {
     savePlans(state).catch((e) => {
       console.error(e);
       showToast('✗ Error guardando plan');
-    });
-  };
-
-  const persistSessions = (next) => {
-    setSessions(next);
-    saveSessions(next).catch((e) => {
-      console.error(e);
-      showToast('✗ Error guardando entreno');
     });
   };
 
@@ -167,15 +160,24 @@ export default function App() {
   const importData = async (file) => {
     const result = await readBackupFile(file);
     if (!result.ok) {
-      showToast('✗ Archivo no válido');
+      showToast(result.reason === 'newer'
+        ? '✗ Esta copia es de una versión más nueva de Reps. Actualiza la app e inténtalo de nuevo'
+        : '✗ Archivo no válido');
       return;
     }
     const planCount = result.plans.plans.length;
     const sessionCount = result.sessions.length;
     const summary = `${planCount} ${planCount === 1 ? 'plan' : 'planes'} y ${sessionCount} ${sessionCount === 1 ? 'entreno' : 'entrenos'}`;
     if (!confirm(`Se reemplazarán tus datos por ${summary}. ¿Continuar?`)) return;
-    commitPlans(result.plans);
-    persistSessions(normalizeSessions(result.sessions, result.plans));
+    try {
+      await saveAllData({ plans: result.plans, sessions: result.sessions });
+    } catch (e) {
+      console.error(e);
+      showToast('✗ No hay espacio para importar');
+      return;
+    }
+    setPlansState(result.plans);
+    setSessions(result.sessions);
     setView('home');
     showToast('✓ Datos importados');
   };
@@ -187,13 +189,13 @@ export default function App() {
     (async () => {
       let corrupt = false;
       const onCorrupt = () => { corrupt = true; };
-      const [loadedSessions, loadedPlans] = await Promise.all([loadSessions({ onCorrupt }), loadPlans({ onCorrupt })]);
-      let activeState = loadedPlans ?? DEFAULT_PLANS;
-      const normalized = normalizeSessions(loadedSessions, activeState);
-      setSessions(normalized);
-      if (normalized.length !== loadedSessions.length) {
-        saveSessions(normalized).catch(console.error);
+      const data = await loadData({ onCorrupt });
+      if (data.status === 'newer') {
+        setNewerData(true);
+        return;
       }
+      setSessions(data.sessions);
+      let activeState = data.plans ?? DEFAULT_PLANS;
       const wip = loadWIP();
       const wipPlan = wip && findPlanByDay(activeState, wip.dayId);
       const wipDay = wipPlan?.days.find(d => d.id === wip.dayId);
@@ -216,7 +218,7 @@ export default function App() {
   }, []);
 
   const startWorkout = (day) => {
-    const lastSession = planSessions.find(s => s.dayId === day.id);
+    const lastSession = latestSession(sessions, activePlan.id, day.id);
     const next = {};
     const notes = {};
     day.exercises.forEach(ex => {
@@ -273,7 +275,7 @@ export default function App() {
   const toggleDone = (exId, setNum) =>
     updateSet(exId, setNum, { done: !currentWorkout[exId]?.[setNum]?.done });
 
-  const finishWorkout = () => {
+  const finishWorkout = async () => {
     const session = {
       planId: activePlan.id,
       dayId: activeDay.id,
@@ -281,7 +283,15 @@ export default function App() {
       exercises: structuredClone(currentWorkout),
       notes: { ...currentNotes },
     };
-    persistSessions(replaceSession(sessions, session));
+    const next = appendSession(sessions, session);
+    try {
+      await saveSessions(next);
+    } catch (e) {
+      console.error(e);
+      showToast('✗ No se pudo guardar el entreno');
+      return;
+    }
+    setSessions(next);
     showToast('✓ Entreno guardado');
     exitWorkout();
   };
@@ -296,6 +306,8 @@ export default function App() {
 
   if (loadError) throw loadError;
 
+  if (newerData) return <UpdateRequired />;
+
   if (!ready) {
     return <div className="app" />;
   }
@@ -307,7 +319,8 @@ export default function App() {
           <Home
             plan={plan}
             planName={activePlan.name}
-            sessions={planSessions}
+            planId={activePlan.id}
+            sessions={sessions}
             onStartWorkout={startWorkout}
             onOpenPlans={() => setView('plans')}
             onOpenPlan={() => openPlanEditor(activePlan.id, 'home')}

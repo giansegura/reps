@@ -1,7 +1,10 @@
+import { countSessions } from '../lib/session.js';
+
 export function PlanList({ plan, planName, sessions, onBack, onRename, onOpenDay, onAdd, onRemove, onMove }) {
   const confirmRemove = (day) => {
-    const warning = sessions.some(s => s.dayId === day.id)
-      ? 'Tienes un entreno guardado de este día. Se conservará en el archivo pero dejará de mostrarse.'
+    const count = countSessions(sessions, { dayId: day.id });
+    const warning = count > 0
+      ? `Tienes ${count} ${count === 1 ? 'entreno guardado' : 'entrenos guardados'} de este día. Se conservarán en este dispositivo pero dejarán de mostrarse.`
       : '';
     if (confirm(`¿Borrar "${day.label}"?\n\n${warning}`)) onRemove(day.id);
   };

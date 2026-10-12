@@ -1,16 +1,22 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
+  ReadOnlyError,
   clearWIP,
   collectRawData,
   dismissInstallHint,
   isInstallHintDismissed,
+  loadData,
   loadPlans,
   loadSessions,
   loadWIP,
+  readVersion,
+  recoverJournal,
   requestPersistence,
+  saveAllData,
   savePlans,
   saveSessions,
   saveWIP,
+  writeAll,
 } from './storage.js';
 
 const createFakeStorage = () => {
@@ -25,6 +31,24 @@ const createFakeStorage = () => {
 };
 
 const plans = { activePlanId: 'p1', plans: [{ id: 'p1', name: 'Full Body', days: [] }] };
+
+const plansWithDay = {
+  activePlanId: 'p1',
+  plans: [{ id: 'p1', name: 'Full Body', days: [{ id: 'd1', label: 'Día 1', color: '#000000', exercises: [] }] }],
+};
+
+const legacy = [
+  { dayId: 'd1', date: '2026-10-02T10:00:00.000Z', exercises: {} },
+  { dayId: 'd1', date: '2026-10-01T10:00:00.000Z', exercises: {} },
+];
+
+const failOn = (failingKey) => {
+  const setItem = localStorage.setItem;
+  localStorage.setItem = (key, value) => {
+    if (key === failingKey) throw new Error('QuotaExceededError');
+    setItem(key, value);
+  };
+};
 
 beforeEach(() => {
   vi.stubGlobal('localStorage', createFakeStorage());
@@ -186,5 +210,190 @@ describe('requestPersistence', () => {
     vi.stubGlobal('navigator', { storage: { persist } });
     requestPersistence();
     expect(persist).toHaveBeenCalledOnce();
+  });
+});
+
+describe('readVersion', () => {
+  it('sin clave es la versión 1', () => {
+    expect(readVersion()).toBe(1);
+  });
+
+  it('lee la versión guardada', () => {
+    localStorage.setItem('reps-version', '2');
+    expect(readVersion()).toBe(2);
+  });
+
+  it.each(['abc', '0', '-1', '2.5', ''])('devuelve null con %j', (raw) => {
+    localStorage.setItem('reps-version', raw);
+    expect(readVersion()).toBeNull();
+  });
+});
+
+describe('writeAll', () => {
+  it('escribe y borra claves sin dejar diario', () => {
+    localStorage.setItem('reps-wip', 'x');
+    writeAll({ 'reps-plans': 'p', 'reps-wip': null });
+    expect(localStorage.getItem('reps-plans')).toBe('p');
+    expect(localStorage.getItem('reps-wip')).toBeNull();
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+  });
+
+  it('si falla a mitad restaura lo anterior y borra el diario', () => {
+    localStorage.setItem('reps-plans', 'viejo');
+    failOn('reps-sessions');
+    expect(() => writeAll({ 'reps-plans': 'nuevo', 'reps-sessions': '[]' })).toThrow('QuotaExceededError');
+    expect(localStorage.getItem('reps-plans')).toBe('viejo');
+    expect(localStorage.getItem('reps-sessions')).toBeNull();
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+  });
+
+  it('si no puede guardar el diario no toca nada', () => {
+    localStorage.setItem('reps-plans', 'viejo');
+    failOn('reps-journal');
+    expect(() => writeAll({ 'reps-plans': 'nuevo' })).toThrow('QuotaExceededError');
+    expect(localStorage.getItem('reps-plans')).toBe('viejo');
+  });
+});
+
+describe('recoverJournal', () => {
+  it('restaura los valores previos y borra el diario', () => {
+    localStorage.setItem('reps-plans', 'nuevo');
+    localStorage.setItem('reps-sessions', 'nuevo');
+    localStorage.setItem('reps-journal', JSON.stringify({ 'reps-plans': 'viejo', 'reps-sessions': null }));
+    recoverJournal();
+    expect(localStorage.getItem('reps-plans')).toBe('viejo');
+    expect(localStorage.getItem('reps-sessions')).toBeNull();
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+  });
+
+  it('guarda aparte un diario dañado sin restaurar nada', () => {
+    const onCorrupt = vi.fn();
+    localStorage.setItem('reps-plans', 'nuevo');
+    localStorage.setItem('reps-journal', '{roto');
+    recoverJournal({ onCorrupt });
+    expect(localStorage.getItem('reps-plans')).toBe('nuevo');
+    expect(localStorage.getItem('reps-journal-corrupt')).toBe('{roto');
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+    expect(onCorrupt).toHaveBeenCalledOnce();
+  });
+
+  it('trata como dañado un diario con claves ajenas a Reps', () => {
+    localStorage.setItem('reps-journal', JSON.stringify({ 'otra-app': 'x' }));
+    recoverJournal();
+    expect(localStorage.getItem('otra-app')).toBeNull();
+    expect(localStorage.getItem('reps-journal-corrupt')).not.toBeNull();
+  });
+});
+
+describe('saveAllData', () => {
+  it('guarda entrenos, planes y versión', async () => {
+    await saveAllData({ plans, sessions: [] });
+    expect(JSON.parse(localStorage.getItem('reps-plans'))).toEqual(plans);
+    expect(localStorage.getItem('reps-sessions')).toBe('[]');
+    expect(localStorage.getItem('reps-version')).toBe('2');
+  });
+
+  it('no escribe planes si son null', async () => {
+    await saveAllData({ plans: null, sessions: [] });
+    expect(localStorage.getItem('reps-plans')).toBeNull();
+  });
+});
+
+describe('loadData', () => {
+  it('migra datos de la versión 1 sin perder entrenos y guarda la versión', async () => {
+    localStorage.setItem('reps-plans', JSON.stringify(plansWithDay));
+    localStorage.setItem('reps-sessions', JSON.stringify(legacy));
+    const data = await loadData();
+    expect(data.status).toBe('ok');
+    expect(data.sessions.map(s => s.date)).toEqual([legacy[1].date, legacy[0].date]);
+    expect(data.sessions.every(s => s.planId === 'p1')).toBe(true);
+    expect(localStorage.getItem('reps-version')).toBe('2');
+    expect(JSON.parse(localStorage.getItem('reps-sessions'))).toEqual(data.sessions);
+  });
+
+  it('sin datos guarda la versión y no inventa planes', async () => {
+    expect(await loadData()).toEqual({ status: 'ok', plans: null, sessions: [] });
+    expect(localStorage.getItem('reps-version')).toBe('2');
+    expect(localStorage.getItem('reps-plans')).toBeNull();
+  });
+
+  it('no reescribe datos que ya están en la versión actual', async () => {
+    const raw = JSON.stringify([{ planId: 'p1', dayId: 'd1', date: 'x', exercises: {}, notes: {} }], null, 1);
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', raw);
+    await loadData();
+    expect(localStorage.getItem('reps-sessions')).toBe(raw);
+  });
+
+  it('con una versión más nueva no lee ni escribe nada', async () => {
+    localStorage.setItem('reps-version', '3');
+    localStorage.setItem('reps-sessions', '{"formato":"nuevo"}');
+    expect(await loadData()).toEqual({ status: 'newer' });
+    expect(localStorage.length).toBe(2);
+  });
+
+  it('restaura un diario pendiente antes de leer', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-plans', '{a medias');
+    localStorage.setItem('reps-journal', JSON.stringify({ 'reps-plans': JSON.stringify(plans) }));
+    const data = await loadData();
+    expect(data.plans).toEqual(plans);
+    expect(localStorage.getItem('reps-plans-corrupt')).toBeNull();
+  });
+
+  it('con una versión dañada guarda una copia y migra', async () => {
+    const onCorrupt = vi.fn();
+    localStorage.setItem('reps-version', 'abc');
+    const data = await loadData({ onCorrupt });
+    expect(data.status).toBe('ok');
+    expect(localStorage.getItem('reps-version-corrupt')).toBe('abc');
+    expect(localStorage.getItem('reps-version')).toBe('2');
+    expect(onCorrupt).toHaveBeenCalledOnce();
+  });
+
+  it('sigue con los datos migrados aunque no pueda guardarlos', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    localStorage.setItem('reps-sessions', JSON.stringify(legacy));
+    failOn('reps-journal');
+    const data = await loadData();
+    expect(data.sessions).toHaveLength(2);
+    expect(localStorage.getItem('reps-version')).toBeNull();
+    vi.restoreAllMocks();
+  });
+
+  it('funciona sin acceso a localStorage', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    localStorage.getItem = () => { throw new Error('SecurityError'); };
+    localStorage.setItem = () => { throw new Error('SecurityError'); };
+    expect(await loadData()).toEqual({ status: 'ok', plans: null, sessions: [] });
+    vi.restoreAllMocks();
+  });
+});
+
+describe('solo lectura', () => {
+  it('con una versión más nueva ninguna escritura llega a localStorage', async () => {
+    localStorage.setItem('reps-version', '3');
+    await expect(savePlans(plans)).rejects.toThrow(ReadOnlyError);
+    await expect(saveSessions([])).rejects.toThrow(ReadOnlyError);
+    await expect(saveAllData({ plans, sessions: [] })).rejects.toThrow(ReadOnlyError);
+    expect(() => writeAll({ 'reps-plans': 'x' })).toThrow(ReadOnlyError);
+    saveWIP('p1', 'd1', {});
+    dismissInstallHint();
+    expect(localStorage.length).toBe(1);
+  });
+
+  it('clearWIP no borra en solo lectura', () => {
+    localStorage.setItem('reps-version', '3');
+    localStorage.setItem('reps-wip', 'x');
+    clearWIP();
+    expect(localStorage.getItem('reps-wip')).toBe('x');
+  });
+
+  it('se bloquea si la versión sube después de cargar', async () => {
+    localStorage.setItem('reps-version', '2');
+    await savePlans(plans);
+    localStorage.setItem('reps-version', '3');
+    await expect(savePlans({ ...plans, activePlanId: 'otro' })).rejects.toThrow(ReadOnlyError);
+    expect(JSON.parse(localStorage.getItem('reps-plans'))).toEqual(plans);
   });
 });

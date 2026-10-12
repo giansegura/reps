@@ -1,7 +1,8 @@
 import { formatDate, formatWeight, getLastWeight } from '../lib/format.js';
+import { latestSession } from '../lib/session.js';
 import { InstallHint } from './InstallHint.jsx';
 
-export function Home({ plan, planName, sessions, onStartWorkout, onOpenPlans, onOpenPlan }) {
+export function Home({ plan, planId, planName, sessions, onStartWorkout, onOpenPlans, onOpenPlan }) {
   return (
     <>
       <header className="header">
@@ -19,7 +20,7 @@ export function Home({ plan, planName, sessions, onStartWorkout, onOpenPlans, on
       ) : (
         <div className="day-cards">
           {plan.map(day => {
-            const lastSession = sessions.find(s => s.dayId === day.id);
+            const lastSession = latestSession(sessions, planId, day.id);
             const empty = day.exercises.length === 0;
             return (
               <button
