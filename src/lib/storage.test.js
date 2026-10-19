@@ -169,11 +169,10 @@ describe('collectRawData', () => {
 
 describe('entreno en curso', () => {
   it('usa la clave reps-wip', () => {
-    saveWIP('p1', 'd1', { e1: {} }, { e1: 'nota' });
-    expect(JSON.parse(localStorage.getItem('reps-wip'))).toEqual({
-      planId: 'p1', dayId: 'd1', workout: { e1: {} }, notes: { e1: 'nota' },
-    });
-    expect(loadWIP()).toEqual({ planId: 'p1', dayId: 'd1', workout: { e1: {} }, notes: { e1: 'nota' } });
+    saveWIP('p1', 'd1', { e1: {} }, { e1: 'nota' }, 1_700_000_000_000);
+    const stored = { planId: 'p1', dayId: 'd1', workout: { e1: {} }, notes: { e1: 'nota' }, startedAt: 1_700_000_000_000 };
+    expect(JSON.parse(localStorage.getItem('reps-wip'))).toEqual(stored);
+    expect(loadWIP()).toEqual(stored);
     clearWIP();
     expect(loadWIP()).toBeNull();
   });

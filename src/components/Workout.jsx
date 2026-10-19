@@ -44,63 +44,62 @@ const INTERACTIVE = 'input, textarea, select, button, a, [contenteditable="true"
 
 const isInteractive = (target) => target instanceof Element && !!target.closest(INTERACTIVE);
 
-const WorkoutTimer = () => {
-  const [elapsed, setElapsed] = useState(0);
+const useSecondsSince = (start, interval) => {
+  const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const start = Date.now();
-    const id = setInterval(() => setElapsed(Math.floor((Date.now() - start) / 1000)), 1000);
+    if (start === null) return undefined;
+    const id = setInterval(() => setNow(Date.now()), interval);
     return () => clearInterval(id);
-  }, []);
+  }, [start, interval]);
 
-  return <span className="workout-timer">{formatElapsed(elapsed)}</span>;
+  return start === null ? 0 : Math.max(0, Math.floor((now - start) / 1000));
 };
 
-const RestTimer = () => {
-  const [startedAt, setStartedAt] = useState(null);
-  const [elapsed, setElapsed] = useState(0);
-  const alertedRef = useRef(false);
+const RestTimer = ({ startedAt, onRestart }) => {
+  const elapsed = useSecondsSince(startedAt, 250);
+  const alertedFor = useRef(null);
+  const over = elapsed >= REST_ALERT_SECONDS;
 
-  const restart = useCallback(() => {
-    primeAudio();
-    alertedRef.current = false;
-    setElapsed(0);
-    setStartedAt(Date.now());
-  }, []);
+  useEffect(() => {
+    if (!over || alertedFor.current === startedAt) return;
+    alertedFor.current = startedAt;
+    playAlert();
+  }, [over, startedAt]);
 
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.code !== 'Space' || e.repeat || isInteractive(e.target)) return;
       e.preventDefault();
-      restart();
+      onRestart();
     };
     window.addEventListener('keydown', onKeyDown);
     return () => window.removeEventListener('keydown', onKeyDown);
-  }, [restart]);
-
-  useEffect(() => {
-    if (startedAt === null) return undefined;
-    const id = setInterval(() => {
-      const seconds = Math.floor((Date.now() - startedAt) / 1000);
-      setElapsed(seconds);
-      if (seconds >= REST_ALERT_SECONDS && !alertedRef.current) {
-        alertedRef.current = true;
-        playAlert();
-      }
-    }, 250);
-    return () => clearInterval(id);
-  }, [startedAt]);
-
-  if (startedAt === null) return null;
+  }, [onRestart]);
 
   return (
-    <button
-      className={`rest-timer ${elapsed >= REST_ALERT_SECONDS ? 'over' : ''}`}
-      aria-label={`Descanso: ${formatElapsed(elapsed)}. Reiniciar`}
-      onClick={restart}
-    >
-      {formatElapsed(elapsed)}
-    </button>
+    <div className="rest-row">
+      <span
+        role="timer"
+        aria-label="Descanso"
+        className={`rest-timer${startedAt === null ? ' idle' : ''}${over ? ' over' : ''}`}
+      >
+        {formatElapsed(elapsed)}
+      </span>
+      <button className="rest-restart" aria-label="Reiniciar descanso" onClick={onRestart}>
+        <span aria-hidden="true">↻</span>
+      </button>
+    </div>
+  );
+};
+
+const WorkoutTimer = ({ startedAt }) => {
+  const elapsed = useSecondsSince(startedAt, 1000);
+
+  return (
+    <span className="workout-total">
+      total <span role="timer" aria-label="Tiempo total" className="workout-timer">{formatElapsed(elapsed)}</span>
+    </span>
   );
 };
 
@@ -118,6 +117,9 @@ export function Workout({
   activeDay,
   currentWorkout,
   currentNotes,
+  startedAt,
+  restStartedAt,
+  onRestartRest,
   onSaveField,
   onSaveNote,
   onTogglePC,
@@ -129,6 +131,16 @@ export function Workout({
   const [editingNoteExercise, setEditingNoteExercise] = useState(null);
   const closeNotes = useCallback(() => setNotesExercise(null), []);
   const closeNoteEditor = useCallback(() => setEditingNoteExercise(null), []);
+
+  useEffect(() => {
+    window.addEventListener('pointerdown', primeAudio);
+    window.addEventListener('keydown', primeAudio);
+    return () => {
+      window.removeEventListener('pointerdown', primeAudio);
+      window.removeEventListener('keydown', primeAudio);
+    };
+  }, []);
+
   const confirmExit = () => {
     if (confirm('¿Salir sin guardar? Se perderá este entreno.')) onExit();
   };
@@ -156,8 +168,8 @@ export function Workout({
             </button>
           </div>
           <div className="timer-slot">
-            <WorkoutTimer />
-            <RestTimer />
+            <RestTimer startedAt={restStartedAt} onRestart={onRestartRest} />
+            <WorkoutTimer startedAt={startedAt} />
           </div>
           <div className="workout-header-side end">
             <span className="day-id">

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { act, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App.jsx';
@@ -129,5 +129,85 @@ describe('App · versiones', () => {
     expect(screen.getByRole('button', { name: '← Salir' })).toBeTruthy();
     expect(data.get('reps-wip')).toBeTruthy();
     expect(JSON.parse(data.get('reps-sessions'))).toHaveLength(1);
+  });
+});
+
+describe('App · tiempo total del entreno', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  const storedWip = () => JSON.parse(localStorage.getItem('reps-wip'));
+
+  it('guarda la hora de inicio al empezar y la mantiene al apuntar series', async () => {
+    const user = userEvent.setup();
+    const before = Date.now();
+    render(<App />);
+    await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+    const { startedAt } = storedWip();
+    expect(startedAt).toBeGreaterThanOrEqual(before);
+    await user.type(screen.getAllByRole('spinbutton', { name: /peso/ })[0], '60');
+    expect(storedWip().startedAt).toBe(startedAt);
+  });
+
+  it('al retomar un entreno el total sigue contando desde la hora guardada', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', '[]');
+    localStorage.setItem('reps-wip', JSON.stringify({
+      planId: 'plan1', dayId: 'day1', workout: {}, notes: {}, startedAt: Date.now() - 3_660_000,
+    }));
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    render(<App />);
+    const total = await screen.findByRole('timer', { name: 'Tiempo total' });
+    expect(total.textContent).toMatch(/^1:01:0\d$/);
+  });
+});
+
+describe('App · descanso automático', () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ['Date', 'setInterval', 'clearInterval'] });
+  });
+
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  const rest = () => screen.getByRole('timer', { name: 'Descanso' }).textContent;
+  const wait = (ms) => act(() => vi.advanceTimersByTime(ms));
+  const firstSet = (name) => screen.getByRole('spinbutton', { name: new RegExp(`^Sentadilla, serie 1, ${name}`) });
+
+  const startDay1 = async (user) => {
+    render(<App />);
+    await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+  };
+
+  it('arranca al completar peso y repeticiones de una serie', async () => {
+    const user = userEvent.setup();
+    await startDay1(user);
+    await user.type(firstSet('peso'), '60');
+    wait(3000);
+    expect(rest()).toBe('00:00');
+    await user.type(firstSet('repeticiones'), '8');
+    wait(3000);
+    expect(rest()).toBe('00:03');
+  });
+
+  it('arranca al marcar una serie con el check', async () => {
+    const user = userEvent.setup();
+    await startDay1(user);
+    await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
+    wait(4000);
+    expect(rest()).toBe('00:04');
+  });
+
+  it('no arranca al corregir una serie ya hecha ni al desmarcarla', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([daySession('2026-10-01T10:00:00.000Z', '60')]));
+    const user = userEvent.setup();
+    await startDay1(user);
+    await user.type(firstSet('repeticiones'), '0');
+    await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
+    wait(3000);
+    expect(rest()).toBe('00:00');
   });
 });

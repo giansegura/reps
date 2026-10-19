@@ -145,10 +145,10 @@ export const loadData = async ({ onCorrupt } = {}) => {
 
 export const loadWIP = () => readJSON(WIP_KEY);
 
-export const saveWIP = (planId, dayId, workout, notes = {}) => {
+export const saveWIP = (planId, dayId, workout, notes = {}, startedAt = Date.now()) => {
   try {
     if (isReadOnly()) return;
-    localStorage.setItem(WIP_KEY, JSON.stringify({ planId, dayId, workout, notes }));
+    localStorage.setItem(WIP_KEY, JSON.stringify({ planId, dayId, workout, notes, startedAt }));
   } catch {
     return;
   }
