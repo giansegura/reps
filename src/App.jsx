@@ -55,6 +55,8 @@ export default function App() {
   const [activeDay, setActiveDay] = useState(null);
   const [currentWorkout, setCurrentWorkout] = useState({});
   const [currentNotes, setCurrentNotes] = useState({});
+  const [workoutStartedAt, setWorkoutStartedAt] = useState(null);
+  const [restStartedAt, setRestStartedAt] = useState(null);
   const [editingDayId, setEditingDayId] = useState(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -207,6 +209,7 @@ export default function App() {
         setActiveDay(wipDay);
         setCurrentWorkout(wip.workout);
         setCurrentNotes(wip.notes || {});
+        setWorkoutStartedAt(wip.startedAt ?? Date.now());
         setView('workout');
       } else if (wip) {
         clearWIP();
@@ -236,18 +239,24 @@ export default function App() {
     });
     setActiveDay(day);
     setCurrentWorkout(next);
+    const startedAt = Date.now();
     setCurrentNotes(notes);
+    setWorkoutStartedAt(startedAt);
+    setRestStartedAt(null);
     setView('workout');
-    saveWIP(activePlan.id, day.id, next, notes);
+    saveWIP(activePlan.id, day.id, next, notes, startedAt);
   };
 
+  const restartRest = () => setRestStartedAt(Date.now());
+
   const updateSet = (exId, setNum, patch) => {
+    if (patch.done && !currentWorkout[exId]?.[setNum]?.done) restartRest();
     setCurrentWorkout(prev => {
       const next = {
         ...prev,
         [exId]: { ...prev[exId], [setNum]: { ...prev[exId]?.[setNum], ...patch } },
       };
-      saveWIP(activePlan.id, activeDay.id, next, currentNotes);
+      saveWIP(activePlan.id, activeDay.id, next, currentNotes, workoutStartedAt);
       return next;
     });
   };
@@ -258,7 +267,7 @@ export default function App() {
     if (trimmed) next[exId] = trimmed;
     else delete next[exId];
     setCurrentNotes(next);
-    saveWIP(activePlan.id, activeDay.id, currentWorkout, next);
+    saveWIP(activePlan.id, activeDay.id, currentWorkout, next, workoutStartedAt);
   };
 
   const saveField = (exId, setNum, field, value) => {
@@ -302,6 +311,8 @@ export default function App() {
     setActiveDay(null);
     setCurrentWorkout({});
     setCurrentNotes({});
+    setWorkoutStartedAt(null);
+    setRestStartedAt(null);
   };
 
   if (loadError) throw loadError;
@@ -331,6 +342,9 @@ export default function App() {
             activeDay={activeDay}
             currentWorkout={currentWorkout}
             currentNotes={currentNotes}
+            startedAt={workoutStartedAt}
+            restStartedAt={restStartedAt}
+            onRestartRest={restartRest}
             onSaveField={saveField}
             onSaveNote={saveNote}
             onTogglePC={togglePC}
