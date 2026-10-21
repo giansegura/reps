@@ -211,3 +211,33 @@ describe('App · descanso automático', () => {
     expect(rest()).toBe('00:00');
   });
 });
+
+describe('App · progreso', () => {
+  it('abre Progreso desde el inicio y conserva el periodo elegido', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([daySession(new Date().toISOString(), '60')]));
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Progreso' }));
+    expect(screen.getByRole('combobox', { name: 'Ejercicio' }).value).toBe('day1:squat');
+    await user.click(screen.getByRole('button', { name: 'Mes' }));
+    await user.click(screen.getByRole('button', { name: '← Inicio' }));
+    await user.click(screen.getByRole('button', { name: 'Progreso' }));
+    expect(screen.getByRole('button', { name: 'Mes' }).getAttribute('aria-pressed')).toBe('true');
+  });
+});
+
+describe('App · progreso en el entreno', () => {
+  it('cerrar la hoja conserva el entreno', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+    const weight = () => screen.getByRole('spinbutton', { name: /^Sentadilla, serie 1, peso/ });
+    await user.type(weight(), '60');
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    expect(screen.getByRole('dialog', { name: 'Sentadilla' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(weight().value).toBe('60');
+    expect(screen.getByRole('button', { name: '← Salir' })).toBeTruthy();
+  });
+});

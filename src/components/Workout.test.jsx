@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Workout } from './Workout.jsx';
@@ -18,6 +18,12 @@ const workoutElement = (props = {}) => (
     startedAt={Date.now()}
     restStartedAt={null}
     onRestartRest={vi.fn()}
+    sessions={[]}
+    planId="p1"
+    progressPeriod="week"
+    progressMetric="volume"
+    onProgressPeriodChange={vi.fn()}
+    onProgressMetricChange={vi.fn()}
     onSaveField={vi.fn()}
     onSaveNote={vi.fn()}
     onTogglePC={vi.fn()}
@@ -124,5 +130,54 @@ describe('Workout · temporizadores', () => {
     await user.click(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
     await user.type(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }), ' ');
     expect(onRestartRest).not.toHaveBeenCalled();
+  });
+});
+
+describe('Workout · progreso', () => {
+  it('el botón de progreso abre la hoja del ejercicio', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sentadilla' });
+    expect(within(dialog).getByRole('group', { name: 'Periodo' })).toBeTruthy();
+  });
+
+  it('la hoja se cierra con Cerrar y con Escape', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+  });
+
+  it('al cerrar la hoja el foco vuelve al botón que la abrió', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    const opener = screen.getByRole('button', { name: 'Progreso de Sentadilla' });
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(document.activeElement).toBe(opener);
+    await user.click(opener);
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('el tabulador no sale de la hoja', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sentadilla' });
+    const close = within(dialog).getByRole('button', { name: 'Cerrar' });
+    expect(document.activeElement).toBe(close);
+    for (let i = 0; i < 6; i++) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+    close.focus();
+    await user.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
   });
 });

@@ -39,6 +39,7 @@ import {
 import { Home } from './components/Home.jsx';
 import { Workout } from './components/Workout.jsx';
 import { Plans } from './components/Plans.jsx';
+import { Progress } from './components/Progress.jsx';
 import { PlanList } from './components/PlanList.jsx';
 import { PlanDay } from './components/PlanDay.jsx';
 import { Toast } from './components/Toast.jsx';
@@ -57,6 +58,8 @@ export default function App() {
   const [currentNotes, setCurrentNotes] = useState({});
   const [workoutStartedAt, setWorkoutStartedAt] = useState(null);
   const [restStartedAt, setRestStartedAt] = useState(null);
+  const [progressPeriod, setProgressPeriod] = useState('week');
+  const [progressMetric, setProgressMetric] = useState('volume');
   const [editingDayId, setEditingDayId] = useState(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
@@ -335,6 +338,18 @@ export default function App() {
             onStartWorkout={startWorkout}
             onOpenPlans={() => setView('plans')}
             onOpenPlan={() => openPlanEditor(activePlan.id, 'home')}
+            onOpenProgress={() => setView('progress')}
+          />
+        )}
+        {view === 'progress' && (
+          <Progress
+            plan={activePlan}
+            sessions={sessions}
+            period={progressPeriod}
+            metric={progressMetric}
+            onPeriodChange={setProgressPeriod}
+            onMetricChange={setProgressMetric}
+            onBack={() => setView('home')}
           />
         )}
         {view === 'workout' && activeDay && (
@@ -345,6 +360,12 @@ export default function App() {
             startedAt={workoutStartedAt}
             restStartedAt={restStartedAt}
             onRestartRest={restartRest}
+            sessions={sessions}
+            planId={activePlan.id}
+            progressPeriod={progressPeriod}
+            progressMetric={progressMetric}
+            onProgressPeriodChange={setProgressPeriod}
+            onProgressMetricChange={setProgressMetric}
             onSaveField={saveField}
             onSaveNote={saveNote}
             onTogglePC={togglePC}
