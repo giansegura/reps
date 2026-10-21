@@ -152,4 +152,32 @@ describe('Workout · progreso', () => {
     await user.keyboard('{Escape}');
     expect(screen.queryByRole('dialog')).toBeNull();
   });
+
+  it('al cerrar la hoja el foco vuelve al botón que la abrió', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    const opener = screen.getByRole('button', { name: 'Progreso de Sentadilla' });
+    await user.click(opener);
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(document.activeElement).toBe(opener);
+    await user.click(opener);
+    await user.keyboard('{Escape}');
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('el tabulador no sale de la hoja', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sentadilla' });
+    const close = within(dialog).getByRole('button', { name: 'Cerrar' });
+    expect(document.activeElement).toBe(close);
+    for (let i = 0; i < 6; i++) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+    close.focus();
+    await user.tab({ shift: true });
+    expect(dialog.contains(document.activeElement)).toBe(true);
+  });
 });

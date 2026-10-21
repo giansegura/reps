@@ -138,8 +138,8 @@ export function Workout({
   const [editingNoteExercise, setEditingNoteExercise] = useState(null);
   const closeNotes = useCallback(() => setNotesExercise(null), []);
   const closeNoteEditor = useCallback(() => setEditingNoteExercise(null), []);
-  const [progressExercise, setProgressExercise] = useState(null);
-  const closeProgress = useCallback(() => setProgressExercise(null), []);
+  const [progressSheet, setProgressSheet] = useState(null);
+  const closeProgress = useCallback(() => setProgressSheet(null), []);
 
   useEffect(() => {
     window.addEventListener('pointerdown', primeAudio);
@@ -221,7 +221,7 @@ export function Workout({
                   <button
                     className="note-btn"
                     aria-label={`Progreso de ${ex.name}`}
-                    onClick={() => setProgressExercise(ex)}
+                    onClick={(e) => setProgressSheet({ exercise: ex, opener: e.currentTarget })}
                   >
                     <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
                       <rect x="1" y="7" width="3" height="6" rx="0.5" />
@@ -319,9 +319,10 @@ export function Workout({
         })}
       </div>
       {notesExercise && <ExerciseNotes exercise={notesExercise} onClose={closeNotes} />}
-      {progressExercise && (
+      {progressSheet && (
         <ProgressSheet
-          exercise={progressExercise}
+          exercise={progressSheet.exercise}
+          opener={progressSheet.opener}
           color={activeDay.color}
           sessions={sessions}
           planId={planId}
