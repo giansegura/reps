@@ -2,7 +2,8 @@ import { formatDate, formatWeight, getLastWeight } from '../lib/format.js';
 import { latestSession } from '../lib/session.js';
 import { InstallHint } from './InstallHint.jsx';
 
-export function Home({ plan, planId, planName, sessions, onStartWorkout, onOpenPlans, onOpenPlan }) {
+export function Home({ plan, planId, planName, sessions, onStartWorkout, onOpenPlans, onOpenPlan, onOpenProgress }) {
+  const hasExercises = plan.some(day => day.exercises.length > 0);
   return (
     <>
       <header className="header">
@@ -11,10 +12,15 @@ export function Home({ plan, planId, planName, sessions, onStartWorkout, onOpenP
         <p className="subtitle">Elige tu entrenamiento</p>
       </header>
       <InstallHint />
-      <button className="plan-switcher" onClick={onOpenPlans}>
-        <span>{planName}</span>
-        <span className="plan-switcher-caret" aria-hidden="true">▾</span>
-      </button>
+      <div className="home-plan-row">
+        <button className="plan-switcher" onClick={onOpenPlans}>
+          <span>{planName}</span>
+          <span className="plan-switcher-caret" aria-hidden="true">▾</span>
+        </button>
+        {hasExercises && (
+          <button className="progress-btn" onClick={onOpenProgress}>Progreso</button>
+        )}
+      </div>
       {plan.length === 0 ? (
         <p className="empty-text">No tienes días en tu plan. Crea el primero para empezar.</p>
       ) : (

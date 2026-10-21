@@ -1,4 +1,5 @@
 import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { Home } from './Home.jsx';
 
@@ -6,8 +7,8 @@ const day = (exercises) => ({ id: 'd1', label: 'Día 1', color: '#22c55e', exerc
 
 const ex = (id) => ({ id, name: `Ejercicio ${id}`, sets: 3, reps: '8' });
 
-const renderHome = (plan) => render(
-  <Home plan={plan} planId="p1" planName="Full Body" sessions={[]} onStartWorkout={vi.fn()} onOpenPlans={vi.fn()} onOpenPlan={vi.fn()} />,
+const renderHome = (plan, props = {}) => render(
+  <Home plan={plan} planId="p1" planName="Full Body" sessions={[]} onStartWorkout={vi.fn()} onOpenPlans={vi.fn()} onOpenPlan={vi.fn()} onOpenProgress={vi.fn()} {...props} />,
 );
 
 describe('Home', () => {
@@ -33,5 +34,16 @@ describe('Home', () => {
     );
     expect(screen.getByText(/65 kg/)).toBeTruthy();
     expect(screen.queryByText(/99 kg/)).toBeNull();
+  });
+
+  it('muestra Progreso solo si hay ejercicios', async () => {
+    const user = userEvent.setup();
+    const onOpenProgress = vi.fn();
+    const { unmount } = renderHome([day([])], { onOpenProgress });
+    expect(screen.queryByRole('button', { name: 'Progreso' })).toBeNull();
+    unmount();
+    renderHome([day([ex('e1')])], { onOpenProgress });
+    await user.click(screen.getByRole('button', { name: 'Progreso' }));
+    expect(onOpenProgress).toHaveBeenCalled();
   });
 });

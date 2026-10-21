@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { formatWeight } from '../lib/format.js';
 import { ExerciseNotes } from './ExerciseNotes.jsx';
 import { ExerciseNoteEditor } from './ExerciseNoteEditor.jsx';
+import { ProgressSheet } from './ProgressSheet.jsx';
 
 const REST_ALERT_SECONDS = 120;
 
@@ -120,6 +121,12 @@ export function Workout({
   startedAt,
   restStartedAt,
   onRestartRest,
+  sessions,
+  planId,
+  progressPeriod,
+  progressMetric,
+  onProgressPeriodChange,
+  onProgressMetricChange,
   onSaveField,
   onSaveNote,
   onTogglePC,
@@ -131,6 +138,8 @@ export function Workout({
   const [editingNoteExercise, setEditingNoteExercise] = useState(null);
   const closeNotes = useCallback(() => setNotesExercise(null), []);
   const closeNoteEditor = useCallback(() => setEditingNoteExercise(null), []);
+  const [progressExercise, setProgressExercise] = useState(null);
+  const closeProgress = useCallback(() => setProgressExercise(null), []);
 
   useEffect(() => {
     window.addEventListener('pointerdown', primeAudio);
@@ -209,6 +218,17 @@ export function Workout({
                 </span>
                 <span className="ex-block-actions">
                   {volume > 0 && <span className="ex-block-meta">{formatWeight(volume)}</span>}
+                  <button
+                    className="note-btn"
+                    aria-label={`Progreso de ${ex.name}`}
+                    onClick={() => setProgressExercise(ex)}
+                  >
+                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
+                      <rect x="1" y="7" width="3" height="6" rx="0.5" />
+                      <rect x="5.5" y="4" width="3" height="9" rx="0.5" />
+                      <rect x="10" y="1" width="3" height="12" rx="0.5" />
+                    </svg>
+                  </button>
                   <button
                     className={`note-btn ${sessionNote ? 'active' : ''}`}
                     aria-label={sessionNote ? `Editar nota de ${ex.name}` : `Añadir nota a ${ex.name}`}
@@ -299,6 +319,19 @@ export function Workout({
         })}
       </div>
       {notesExercise && <ExerciseNotes exercise={notesExercise} onClose={closeNotes} />}
+      {progressExercise && (
+        <ProgressSheet
+          exercise={progressExercise}
+          color={activeDay.color}
+          sessions={sessions}
+          planId={planId}
+          period={progressPeriod}
+          metric={progressMetric}
+          onPeriodChange={onProgressPeriodChange}
+          onMetricChange={onProgressMetricChange}
+          onClose={closeProgress}
+        />
+      )}
       {editingNoteExercise && (
         <ExerciseNoteEditor
           exercise={editingNoteExercise}
