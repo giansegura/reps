@@ -124,6 +124,7 @@ describe('App · versiones', () => {
     const user = userEvent.setup();
     render(<App />);
     await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+    await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
     await user.click(screen.getByRole('button', { name: /^Guardar entreno/ }));
     expect(await screen.findByText(/No se pudo guardar el entreno/)).toBeTruthy();
     expect(screen.getByRole('button', { name: '← Salir' })).toBeTruthy();
@@ -200,15 +201,56 @@ describe('App · descanso automático', () => {
     expect(rest()).toBe('00:04');
   });
 
-  it('no arranca al corregir una serie ya hecha ni al desmarcarla', async () => {
+  it('no se reinicia al corregir una serie ya hecha ni al desmarcarla', async () => {
     localStorage.setItem('reps-version', '2');
     localStorage.setItem('reps-sessions', JSON.stringify([daySession('2026-10-01T10:00:00.000Z', '60')]));
     const user = userEvent.setup();
     await startDay1(user);
-    await user.type(firstSet('repeticiones'), '0');
     await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
     wait(3000);
-    expect(rest()).toBe('00:00');
+    expect(rest()).toBe('00:03');
+    await user.type(firstSet('repeticiones'), '0');
+    await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
+    wait(2000);
+    expect(rest()).toBe('00:05');
+  });
+});
+
+describe('App · series precargadas del último entreno', () => {
+  const check = () => screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' });
+  const field = (name) => screen.getByRole('spinbutton', { name: new RegExp(`^Sentadilla, serie 1, ${name}`) });
+
+  const startDay1WithHistory = async (user) => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([daySession('2026-10-01T10:00:00.000Z', '60')]));
+    render(<App />);
+    await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+  };
+
+  it('llegan con peso y repeticiones rellenos pero sin marcar', async () => {
+    const user = userEvent.setup();
+    await startDay1WithHistory(user);
+    expect(field('peso').value).toBe('60');
+    expect(field('repeticiones').value).toBe('8');
+    expect(check().getAttribute('aria-pressed')).toBe('false');
+    expect(screen.getByRole('button', { name: 'Guardar entreno, 0 de 15 series' }).disabled).toBe(true);
+  });
+
+  it('cambiar un valor precargado no marca la serie', async () => {
+    const user = userEvent.setup();
+    await startDay1WithHistory(user);
+    await user.type(field('peso'), '5');
+    expect(field('peso').value).toBe('605');
+    expect(check().getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('vaciar un valor y volver a rellenarlo sí la marca', async () => {
+    const user = userEvent.setup();
+    await startDay1WithHistory(user);
+    await user.clear(field('repeticiones'));
+    expect(check().getAttribute('aria-pressed')).toBe('false');
+    await user.type(field('repeticiones'), '8');
+    expect(check().getAttribute('aria-pressed')).toBe('true');
   });
 });
 

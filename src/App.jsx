@@ -48,6 +48,15 @@ import { UpdateRequired } from './components/UpdateRequired.jsx';
 
 const isFilled = (value) => value !== '' && value !== undefined;
 
+const isComplete = (set) => isFilled(set?.weight) && isFilled(set?.reps);
+
+// A set is marked done by itself only when it just became complete; a set that
+// arrives complete (prefilled from the last workout) waits for the user's check.
+const nextDone = (before, after) => {
+  if (!isComplete(after)) return false;
+  return isComplete(before) ? !!before.done : true;
+};
+
 export default function App() {
   const [sessions, setSessions] = useState([]);
   const [plansState, setPlansState] = useState(DEFAULT_PLANS);
@@ -250,7 +259,7 @@ export default function App() {
         next[ex.id][i] = {
           weight: prev?.[i]?.weight || '',
           reps: prev?.[i]?.reps || '',
-          done: !!(prev?.[i]?.weight && prev?.[i]?.reps),
+          done: false,
         };
       }
     });
@@ -288,14 +297,15 @@ export default function App() {
   };
 
   const saveField = (exId, setNum, field, value) => {
-    const set = { ...currentWorkout[exId]?.[setNum], [field]: value };
-    updateSet(exId, setNum, { [field]: value, done: isFilled(set.weight) && isFilled(set.reps) });
+    const before = currentWorkout[exId]?.[setNum] || {};
+    const after = { ...before, [field]: value };
+    updateSet(exId, setNum, { [field]: value, done: nextDone(before, after) });
   };
 
   const togglePC = (exId, setNum) => {
-    const set = currentWorkout[exId]?.[setNum] || {};
-    const weight = set.weight === 'PC' ? '' : 'PC';
-    updateSet(exId, setNum, { weight, done: isFilled(weight) && isFilled(set.reps) });
+    const before = currentWorkout[exId]?.[setNum] || {};
+    const weight = before.weight === 'PC' ? '' : 'PC';
+    updateSet(exId, setNum, { weight, done: nextDone(before, { ...before, weight }) });
   };
 
   const toggleDone = (exId, setNum) =>
