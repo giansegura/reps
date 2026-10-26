@@ -50,8 +50,6 @@ const isFilled = (value) => value !== '' && value !== undefined;
 
 const isComplete = (set) => isFilled(set?.weight) && isFilled(set?.reps);
 
-// A set is marked done by itself only when it just became complete; a set that
-// arrives complete (prefilled from the last workout) waits for the user's check.
 const nextDone = (before, after) => {
   if (!isComplete(after)) return false;
   return isComplete(before) ? !!before.done : true;

@@ -59,11 +59,14 @@ const doneSets = (exData = {}) => Object.keys(exData)
   .map(n => exData[n])
   .filter(set => set?.done);
 
+const noteText = (note) => (note ?? '').split(/\s*\n+\s*/).map(part => part.trim()).filter(Boolean).join(' / ');
+
 const exerciseLines = (ex, exData, note) => {
   const sets = doneSets(exData);
   if (sets.length === 0) return [];
   const lines = [`- ${ex.name}: ${sets.map(setText).join(', ')}`];
-  if (note?.trim()) lines.push(`  Nota: "${note.trim()}"`);
+  const text = noteText(note);
+  if (text) lines.push(`  Nota: "${text}"`);
   return lines;
 };
 

@@ -97,6 +97,14 @@ describe('renderHistory · series', () => {
     const text = renderHistory(plans, [session({ notes: { bench: 'Hombro molesto' } })], now);
     expect(text).toContain('- Press banca: 70 kg × 8, 72.5 kg × 6\n  Nota: "Hombro molesto"\n');
   });
+
+  it('mantiene una nota de varias líneas en una sola línea para no romper la estructura', () => {
+    const note = 'Hombro molesto\n- Otro ejercicio: 1 kg × 1\n\n### Otra sesión';
+    const text = renderHistory(plans, [session({ notes: { bench: note } })], now);
+    expect(text).toContain('  Nota: "Hombro molesto / - Otro ejercicio: 1 kg × 1 / ### Otra sesión"\n');
+    expect(text).not.toContain('\n- Otro ejercicio');
+    expect(text).not.toContain('\n### Otra sesión');
+  });
 });
 
 describe('renderHistory · orden y datos huérfanos', () => {
