@@ -12,6 +12,7 @@ import {
 } from './lib/storage.js';
 import { appendSession, latestSession } from './lib/session.js';
 import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
+import { historyFileName, renderHistory } from './lib/history.js';
 import { shareOrDownload } from './lib/share.js';
 import {
   createDay,
@@ -46,6 +47,13 @@ import { Toast } from './components/Toast.jsx';
 import { UpdateRequired } from './components/UpdateRequired.jsx';
 
 const isFilled = (value) => value !== '' && value !== undefined;
+
+const isComplete = (set) => isFilled(set?.weight) && isFilled(set?.reps);
+
+const nextDone = (before, after) => {
+  if (!isComplete(after)) return false;
+  return isComplete(before) ? !!before.done : true;
+};
 
 export default function App() {
   const [sessions, setSessions] = useState([]);
@@ -150,16 +158,29 @@ export default function App() {
     setView('planList');
   };
 
-  const exportData = async () => {
-    const now = new Date();
-    const json = `${JSON.stringify(createBackup(plansState, sessions, now), null, 2)}\n`;
-    const file = new File([json], backupFileName(now), { type: 'application/json' });
+  const shareFile = async (file) => {
     try {
       await shareOrDownload(file);
     } catch (e) {
       console.error(e);
       showToast('✗ Error exportando');
     }
+  };
+
+  const exportData = () => {
+    const now = new Date();
+    const json = `${JSON.stringify(createBackup(plansState, sessions, now), null, 2)}\n`;
+    return shareFile(new File([json], backupFileName(now), { type: 'application/json' }));
+  };
+
+  const exportHistory = () => {
+    if (sessions.length === 0) {
+      showToast('Aún no hay entrenos que exportar');
+      return;
+    }
+    const now = new Date();
+    const text = renderHistory(plansState, sessions, now);
+    return shareFile(new File([text], historyFileName(now), { type: 'text/markdown' }));
   };
 
   const importData = async (file) => {
@@ -236,7 +257,7 @@ export default function App() {
         next[ex.id][i] = {
           weight: prev?.[i]?.weight || '',
           reps: prev?.[i]?.reps || '',
-          done: !!(prev?.[i]?.weight && prev?.[i]?.reps),
+          done: false,
         };
       }
     });
@@ -274,14 +295,15 @@ export default function App() {
   };
 
   const saveField = (exId, setNum, field, value) => {
-    const set = { ...currentWorkout[exId]?.[setNum], [field]: value };
-    updateSet(exId, setNum, { [field]: value, done: isFilled(set.weight) && isFilled(set.reps) });
+    const before = currentWorkout[exId]?.[setNum] || {};
+    const after = { ...before, [field]: value };
+    updateSet(exId, setNum, { [field]: value, done: nextDone(before, after) });
   };
 
   const togglePC = (exId, setNum) => {
-    const set = currentWorkout[exId]?.[setNum] || {};
-    const weight = set.weight === 'PC' ? '' : 'PC';
-    updateSet(exId, setNum, { weight, done: isFilled(weight) && isFilled(set.reps) });
+    const before = currentWorkout[exId]?.[setNum] || {};
+    const weight = before.weight === 'PC' ? '' : 'PC';
+    updateSet(exId, setNum, { weight, done: nextDone(before, { ...before, weight }) });
   };
 
   const toggleDone = (exId, setNum) =>
@@ -386,6 +408,7 @@ export default function App() {
             onRemove={removeExistingPlan}
             onCreate={createNewPlan}
             onExport={exportData}
+            onExportHistory={exportHistory}
             onImport={importData}
           />
         )}

@@ -1,7 +1,7 @@
 import { useRef } from 'react';
 import { countSessions } from '../lib/session.js';
 
-export function Plans({ plans, activePlanId, sessions, onBack, onActivate, onEdit, onDuplicate, onRemove, onCreate, onExport, onImport }) {
+export function Plans({ plans, activePlanId, sessions, onBack, onActivate, onEdit, onDuplicate, onRemove, onCreate, onExport, onExportHistory, onImport }) {
   const fileInput = useRef(null);
 
   const confirmRemove = (plan) => {
@@ -58,6 +58,8 @@ export function Plans({ plans, activePlanId, sessions, onBack, onActivate, onEdi
           <button className="ghost-btn" onClick={onExport}>Exportar copia</button>
           <button className="ghost-btn" onClick={() => fileInput.current.click()}>Importar copia</button>
         </div>
+        <button className="ghost-btn data-history-btn" onClick={onExportHistory}>Exportar historial para IA</button>
+        <p className="data-text">Un archivo de texto con todos tus entrenos, listo para pegar o adjuntar en cualquier IA.</p>
         <input
           ref={fileInput}
           type="file"

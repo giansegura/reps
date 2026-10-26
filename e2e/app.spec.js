@@ -30,3 +30,8 @@ test('abre sin conexión', async ({ page, context }) => {
   await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();
   await expect(page.locator('.day-card')).toHaveCount(3);
 });
+
+test('el teclado virtual encoge la página para que la cabecera fija siga a la vista', async ({ page }) => {
+  await page.goto('./app/');
+  await expect(page.locator('meta[name="viewport"]')).toHaveAttribute('content', /interactive-widget=resizes-content/);
+});

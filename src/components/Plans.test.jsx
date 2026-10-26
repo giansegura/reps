@@ -25,3 +25,15 @@ describe('Plans · borrar plan', () => {
     expect(confirm).toHaveBeenCalledWith(expect.stringContaining('Tienes 3 entrenos guardados de este plan.'));
   });
 });
+
+describe('Plans · exportar historial', () => {
+  it('ofrece un botón para exportar el historial para IA', async () => {
+    const onExportHistory = vi.fn();
+    render(
+      <Plans plans={plans} activePlanId="p1" sessions={[]} onBack={vi.fn()} onActivate={vi.fn()} onEdit={vi.fn()}
+        onDuplicate={vi.fn()} onRemove={vi.fn()} onCreate={vi.fn()} onExport={vi.fn()} onExportHistory={onExportHistory} onImport={vi.fn()} />,
+    );
+    await userEvent.setup().click(screen.getByRole('button', { name: 'Exportar historial para IA' }));
+    expect(onExportHistory).toHaveBeenCalledOnce();
+  });
+});
