@@ -12,6 +12,7 @@ import {
 } from './lib/storage.js';
 import { appendSession, latestSession } from './lib/session.js';
 import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
+import { historyFileName, renderHistory } from './lib/history.js';
 import { shareOrDownload } from './lib/share.js';
 import {
   createDay,
@@ -150,16 +151,29 @@ export default function App() {
     setView('planList');
   };
 
-  const exportData = async () => {
-    const now = new Date();
-    const json = `${JSON.stringify(createBackup(plansState, sessions, now), null, 2)}\n`;
-    const file = new File([json], backupFileName(now), { type: 'application/json' });
+  const shareFile = async (file) => {
     try {
       await shareOrDownload(file);
     } catch (e) {
       console.error(e);
       showToast('✗ Error exportando');
     }
+  };
+
+  const exportData = () => {
+    const now = new Date();
+    const json = `${JSON.stringify(createBackup(plansState, sessions, now), null, 2)}\n`;
+    return shareFile(new File([json], backupFileName(now), { type: 'application/json' }));
+  };
+
+  const exportHistory = () => {
+    if (sessions.length === 0) {
+      showToast('Aún no hay entrenos que exportar');
+      return;
+    }
+    const now = new Date();
+    const text = renderHistory(plansState, sessions, now);
+    return shareFile(new File([text], historyFileName(now), { type: 'text/markdown' }));
   };
 
   const importData = async (file) => {
@@ -386,6 +400,7 @@ export default function App() {
             onRemove={removeExistingPlan}
             onCreate={createNewPlan}
             onExport={exportData}
+            onExportHistory={exportHistory}
             onImport={importData}
           />
         )}

@@ -241,3 +241,49 @@ describe('App · progreso en el entreno', () => {
     expect(screen.getByRole('button', { name: '← Salir' })).toBeTruthy();
   });
 });
+
+describe('App · exportar historial para IA', () => {
+  const session = {
+    planId: 'plan1',
+    dayId: 'day1',
+    date: new Date(2026, 2, 1, 10, 15).toISOString(),
+    exercises: { squat: { 1: { weight: '60', reps: '8', done: true } } },
+    notes: {},
+  };
+
+  const openPlans = async (user) => {
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Full Body/ }));
+    return screen.getByRole('button', { name: 'Exportar historial para IA' });
+  };
+
+  beforeEach(() => {
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+  });
+
+  it('avisa si aún no hay entrenos y no genera archivo', async () => {
+    const user = userEvent.setup();
+    await user.click(await openPlans(user));
+    expect(await screen.findByText('Aún no hay entrenos que exportar')).toBeTruthy();
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+  });
+
+  it('genera un archivo markdown con el historial', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([session]));
+    const user = userEvent.setup();
+    await user.click(await openPlans(user));
+    expect(URL.createObjectURL).toHaveBeenCalledOnce();
+    const file = URL.createObjectURL.mock.calls[0][0];
+    expect(file.name).toMatch(/^reps-historial-\d{4}-\d{2}-\d{2}\.md$/);
+    expect(file.type).toBe('text/markdown');
+    const text = await file.text();
+    expect(text).toContain('# Historial de entrenamientos · Reps');
+    expect(text).toContain('### 2026-03-01 · domingo 10:15 · Full Body › Día 1\n- Sentadilla: 60 kg × 8\n');
+  });
+});

@@ -21,6 +21,37 @@ test('exporta una copia válida', async ({ page }) => {
   expect(backup.plans.plans[0].name).toBe('Full Body');
 });
 
+test('avisa al exportar el historial para IA sin entrenos', async ({ page }) => {
+  await openPlans(page);
+  await page.getByRole('button', { name: 'Exportar historial para IA' }).click();
+  await expect(page.getByText('Aún no hay entrenos que exportar')).toBeVisible();
+});
+
+test('exporta el historial para IA en markdown', async ({ page }) => {
+  await page.goto('./app/');
+  await page.evaluate(() => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([{
+      planId: 'plan1',
+      dayId: 'day1',
+      date: new Date(2026, 2, 1, 10, 15).toISOString(),
+      exercises: { squat: { 1: { weight: '60', reps: '8', done: true }, 2: { weight: '62,5', reps: '6', done: true } } },
+      notes: { squat: 'Buenas sensaciones' },
+    }]));
+  });
+  await page.reload();
+  await page.locator('.plan-switcher').click();
+  const downloadPromise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Exportar historial para IA' }).click();
+  const download = await downloadPromise;
+  expect(download.suggestedFilename()).toMatch(/^reps-historial-\d{4}-\d{2}-\d{2}\.md$/);
+  const text = fs.readFileSync(await download.path(), 'utf8');
+  expect(text).toContain('# Historial de entrenamientos · Reps');
+  expect(text).toContain('Entrenos: 1 (del 2026-03-01 al 2026-03-01)');
+  expect(text).toContain('### Full Body\n- Día 1: Sentadilla (3×8)');
+  expect(text).toContain('### 2026-03-01 · domingo 10:15 · Full Body › Día 1\n- Sentadilla: 60 kg × 8, 62.5 kg × 6\n  Nota: "Buenas sensaciones"\n');
+});
+
 test('rechaza un archivo que no es una copia', async ({ page }) => {
   await openPlans(page);
   await page.locator('input[type=file]').setInputFiles({
