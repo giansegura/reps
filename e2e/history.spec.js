@@ -19,6 +19,7 @@ const seed = async (page, entries) => {
 const saveFirstDay = async (page, weight) => {
   await page.locator('.day-card').first().click();
   await page.locator('.set-row').first().getByRole('spinbutton', { name: /peso/ }).fill(weight);
+  await page.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }).click();
   await page.getByRole('button', { name: /^Guardar entreno/ }).click();
   await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();
 };

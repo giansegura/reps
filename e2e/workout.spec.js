@@ -22,6 +22,32 @@ test('retoma el entreno en curso tras recargar y lo guarda', async ({ page }) =>
   await expect(day).toContainText('Último ·');
 });
 
+test('las series del último entreno llegan rellenas pero sin marcar', async ({ page }) => {
+  await page.goto('./app/');
+  await page.evaluate(() => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([{
+      planId: 'plan1',
+      dayId: 'day1',
+      date: '2026-10-01T10:00:00.000Z',
+      exercises: { squat: { 1: { weight: '60', reps: '8', done: true } } },
+      notes: {},
+    }]));
+  });
+  await page.reload();
+  await page.locator('.day-card').first().click();
+  await expect(firstSet(page).getByRole('spinbutton', { name: /peso/ })).toHaveValue('60');
+  await expect(firstSet(page).getByRole('spinbutton', { name: /repeticiones/ })).toHaveValue('8');
+  const check = page.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' });
+  await expect(check).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.getByRole('button', { name: /^Guardar entreno, 0 de/ })).toBeDisabled();
+  await firstSet(page).getByRole('spinbutton', { name: /peso/ }).fill('62.5');
+  await expect(check).toHaveAttribute('aria-pressed', 'false');
+  await check.click();
+  await expect(check).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.getByRole('button', { name: /^Guardar entreno, 1 de/ })).toBeEnabled();
+});
+
 test('la nota admite espacios y el espacio fuera de un campo arranca el descanso', async ({ page }) => {
   await startFirstDay(page);
   await page.getByRole('button', { name: 'Añadir nota a Sentadilla' }).click();
