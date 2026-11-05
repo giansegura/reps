@@ -432,7 +432,11 @@ button:disabled { cursor: not-allowed; }
 }
 .ex-edit-grid { display: flex; gap: 8px; align-items: center; }
 .ex-edit-grid .field-input { flex: 1; min-width: 0; }
-.ex-edit-grid .field-input.narrow { width: 64px; flex: none; text-align: center; font-family: var(--mono); }
+.ex-edit-sets {
+  display: grid; grid-template-columns: 64px minmax(0, 1fr) auto; gap: 6px 8px; align-items: center;
+}
+.ex-edit-sets .field-input.narrow { text-align: center; font-family: var(--mono); }
+.ex-edit-reps-label { grid-column: span 2; }
 
 .bw-toggle {
   padding: 11px 12px; border-radius: var(--radius-sm); border: 1px solid var(--line-2);

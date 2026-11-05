@@ -54,3 +54,11 @@ describe('PlanDay · series', () => {
     expect(input.value).toBe('3');
   });
 });
+
+describe('PlanDay · etiquetas', () => {
+  it('rotula los campos de series y repeticiones', () => {
+    render(<Harness onUpdateExercise={vi.fn()} />);
+    expect(screen.getByLabelText('Series')).toBe(screen.getByRole('spinbutton', { name: 'Series de Sentadilla' }));
+    expect(screen.getByLabelText('Reps')).toBe(screen.getByRole('textbox', { name: 'Reps de Sentadilla' }));
+  });
+});
