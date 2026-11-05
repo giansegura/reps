@@ -261,6 +261,14 @@ describe('writeAll', () => {
     expect(localStorage.getItem('reps-journal')).toBeNull();
   });
 
+  it('no escribe si el diario pendiente devuelve una versión más nueva', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-journal', JSON.stringify({ 'reps-version': '3' }));
+    await expect(savePlans(plans)).rejects.toThrow(ReadOnlyError);
+    expect(() => writeAll({ 'reps-plans': 'x' })).toThrow(ReadOnlyError);
+    expect(localStorage.getItem('reps-plans')).toBeNull();
+  });
+
   it('una escritura aplica antes el diario pendiente', async () => {
     localStorage.setItem('reps-sessions', 'a medias');
     localStorage.setItem('reps-journal', JSON.stringify({ 'reps-sessions': 'viejo', 'reps-plans': null }));

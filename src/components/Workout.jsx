@@ -140,6 +140,9 @@ export function Workout({
   const [noteEditor, setNoteEditor] = useState(null);
   const closeNotes = useCallback(() => setNotesSheet(null), []);
   const closeNoteEditor = useCallback(() => setNoteEditor(null), []);
+  const noteButtons = useRef({});
+  const openNoteEditor = (ex, e) =>
+    setNoteEditor({ exercise: ex, opener: e.currentTarget, fallback: noteButtons.current[ex.id] });
   const [progressSheet, setProgressSheet] = useState(null);
   const closeProgress = useCallback(() => setProgressSheet(null), []);
 
@@ -232,10 +235,11 @@ export function Workout({
                     </svg>
                   </button>
                   <button
+                    ref={(el) => { noteButtons.current[ex.id] = el; }}
                     className={`note-btn ${sessionNote ? 'active' : ''}`}
                     aria-label={sessionNote ? `Editar nota de ${ex.name}` : `Añadir nota a ${ex.name}`}
                     aria-pressed={!!sessionNote}
-                    onClick={(e) => setNoteEditor({ exercise: ex, opener: e.currentTarget })}
+                    onClick={(e) => openNoteEditor(ex, e)}
                   >
                     <span aria-hidden="true">✎</span>
                   </button>
@@ -245,7 +249,7 @@ export function Workout({
                 <button
                   className="ex-note-preview"
                   aria-label={`Nota de ${ex.name}: ${sessionNote}. Editar`}
-                  onClick={(e) => setNoteEditor({ exercise: ex, opener: e.currentTarget })}
+                  onClick={(e) => openNoteEditor(ex, e)}
                 >
                   {sessionNote}
                 </button>
@@ -341,6 +345,7 @@ export function Workout({
         <ExerciseNoteEditor
           exercise={noteEditor.exercise}
           opener={noteEditor.opener}
+          fallback={noteEditor.fallback}
           value={currentNotes[noteEditor.exercise.id] || ''}
           onSave={onSaveNote}
           onClose={closeNoteEditor}

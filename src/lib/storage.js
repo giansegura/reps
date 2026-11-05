@@ -65,8 +65,7 @@ const restore = (previous) => {
 };
 
 export const writeAll = (entries) => {
-  if (isReadOnly()) throw new ReadOnlyError();
-  recoverJournal();
+  beginWrite();
   const previous = Object.fromEntries(Object.keys(entries).map(key => [key, localStorage.getItem(key)]));
   localStorage.setItem(JOURNAL_KEY, JSON.stringify(previous));
   try {
@@ -91,9 +90,14 @@ export const recoverJournal = ({ onCorrupt } = {}) => {
   localStorage.removeItem(JOURNAL_KEY);
 };
 
-const writeJSON = async (key, data) => {
+const beginWrite = () => {
   if (isReadOnly()) throw new ReadOnlyError();
   recoverJournal();
+  if (isReadOnly()) throw new ReadOnlyError();
+};
+
+const writeJSON = async (key, data) => {
+  beginWrite();
   localStorage.setItem(key, JSON.stringify(data));
 };
 

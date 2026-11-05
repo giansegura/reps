@@ -21,10 +21,8 @@ export const normalizeSessions = (plans, sessions) => {
   const activePlanId = getActivePlan(lookup).id;
   return sessions
     .map(s => ({
+      ...s,
       planId: s.planId || findPlanByDay(lookup, s.dayId)?.id || activePlanId,
-      dayId: s.dayId,
-      date: s.date,
-      exercises: s.exercises,
       notes: s.notes || {},
     }))
     .sort(byDate);

@@ -72,6 +72,11 @@ describe('parseBackup', () => {
     expect(result.sessions).toEqual([{ ...legacy[0], planId: 'p2', notes: {} }]);
   });
 
+  it('conserva los campos adicionales de las sesiones', () => {
+    const extra = [{ ...sessions[0], duration: 3600 }];
+    expect(parseBackup(toText({ sessions: extra })).sessions).toEqual(extra);
+  });
+
   it('ordena por fecha las sesiones de una copia de la versión actual', () => {
     const later = { ...sessions[0], date: '2026-10-05T10:00:00.000Z' };
     const result = parseBackup(toText({ sessions: [later, sessions[0]] }));

@@ -2,7 +2,7 @@ import { useEffect } from 'react';
 
 const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
 
-export const useModal = (dialogRef, onClose, opener) => {
+export const useModal = (dialogRef, onClose, opener, fallback) => {
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key === 'Escape') {
@@ -27,5 +27,5 @@ export const useModal = (dialogRef, onClose, opener) => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [dialogRef, onClose]);
 
-  useEffect(() => () => opener?.focus(), [opener]);
+  useEffect(() => () => (opener?.isConnected ? opener : fallback)?.focus(), [opener, fallback]);
 };

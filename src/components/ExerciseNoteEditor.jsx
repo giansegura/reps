@@ -1,10 +1,10 @@
 import { useRef, useState } from 'react';
 import { useModal } from './useModal.js';
 
-export function ExerciseNoteEditor({ exercise, value, opener, onSave, onClose }) {
+export function ExerciseNoteEditor({ exercise, value, opener, fallback, onSave, onClose }) {
   const [text, setText] = useState(value);
   const dialogRef = useRef(null);
-  useModal(dialogRef, onClose, opener);
+  useModal(dialogRef, onClose, opener, fallback);
 
   const save = () => {
     onSave(exercise.id, text);
