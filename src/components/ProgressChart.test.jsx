@@ -65,11 +65,13 @@ describe('ProgressChart', () => {
     expect(screen.getByText('Este mes')).toBeTruthy();
   });
 
-  it('etiqueta cada barra', () => {
+  it('cada barra lleva su texto dentro para los lectores de pantalla', () => {
     renderChart();
-    expect(screen.getByRole('listitem', { name: 'Semana del 19 oct: 480 kg' })).toBeTruthy();
-    expect(screen.getByRole('listitem', { name: 'Semana del 12 oct: 800 kg' })).toBeTruthy();
-    expect(screen.getByRole('listitem', { name: 'Semana del 5 oct: sin entrenos' })).toBeTruthy();
+    const items = bars();
+    expect(within(items[7]).getByText('Semana del 19 oct: 480 kg')).toBeTruthy();
+    expect(within(items[6]).getByText('Semana del 12 oct: 800 kg')).toBeTruthy();
+    expect(within(items[5]).getByText('Semana del 5 oct: sin entrenos')).toBeTruthy();
+    expect(items.every(item => !item.hasAttribute('aria-label'))).toBe(true);
   });
 
   it('avisa los cambios de selector', async () => {

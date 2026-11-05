@@ -1,15 +1,10 @@
-import { useEffect, useState } from 'react';
+import { useRef, useState } from 'react';
+import { useModal } from './useModal.js';
 
-export function ExerciseNoteEditor({ exercise, value, onSave, onClose }) {
+export function ExerciseNoteEditor({ exercise, value, opener, onSave, onClose }) {
   const [text, setText] = useState(value);
-
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+  const dialogRef = useRef(null);
+  useModal(dialogRef, onClose, opener);
 
   const save = () => {
     onSave(exercise.id, text);
@@ -26,6 +21,7 @@ export function ExerciseNoteEditor({ exercise, value, onSave, onClose }) {
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"

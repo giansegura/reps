@@ -56,6 +56,12 @@ describe('Progress', () => {
     expect(screen.getByText('400 kg')).toBeTruthy();
   });
 
+  it('sin ejercicios en el plan lo dice en vez de romperse', () => {
+    renderProgress({ plan: { ...plan, days: [plan.days[0]] } });
+    expect(screen.getByText('Este plan aún no tiene ejercicios')).toBeTruthy();
+    expect(screen.getByRole('button', { name: '← Inicio' })).toBeTruthy();
+  });
+
   it('← Inicio llama a onBack', async () => {
     const user = userEvent.setup();
     const onBack = vi.fn();

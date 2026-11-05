@@ -64,9 +64,18 @@ describe('parseBackup', () => {
     expect(parseBackup(toText({ sessions: withNotes })).ok).toBe(true);
   });
 
-  it('acepta sesiones sin planId ni notes', () => {
-    const legacy = [{ dayId: 'd1', date: '2026-10-01T10:00:00.000Z', exercises: {} }];
-    expect(parseBackup(toText({ sessions: legacy })).ok).toBe(true);
+  it('acepta sesiones sin planId ni notes y las asigna al plan del día', () => {
+    const twoPlans = { activePlanId: 'p1', plans: [plans.plans[0], { id: 'p2', name: 'Pierna', days: [{ ...plans.plans[0].days[0], id: 'd2' }] }] };
+    const legacy = [{ dayId: 'd2', date: '2026-10-01T10:00:00.000Z', exercises: {} }];
+    const result = parseBackup(toText({ plans: twoPlans, sessions: legacy }));
+    expect(result.ok).toBe(true);
+    expect(result.sessions).toEqual([{ ...legacy[0], planId: 'p2', notes: {} }]);
+  });
+
+  it('ordena por fecha las sesiones de una copia de la versión actual', () => {
+    const later = { ...sessions[0], date: '2026-10-05T10:00:00.000Z' };
+    const result = parseBackup(toText({ sessions: [later, sessions[0]] }));
+    expect(result.sessions.map(s => s.date)).toEqual([sessions[0].date, later.date]);
   });
 
   it('acepta copias de la versión 1 y las migra', () => {

@@ -1,7 +1,6 @@
-import { useEffect, useRef } from 'react';
+import { useRef } from 'react';
 import { ProgressChart } from './ProgressChart.jsx';
-
-const FOCUSABLE = 'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])';
+import { useModal } from './useModal.js';
 
 export const ProgressSheet = ({
   exercise,
@@ -17,31 +16,7 @@ export const ProgressSheet = ({
 }) => {
   const dialogRef = useRef(null);
 
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') {
-        onClose();
-        return;
-      }
-      if (e.key !== 'Tab') return;
-      const focusable = [...dialogRef.current.querySelectorAll(FOCUSABLE)].filter(el => !el.disabled);
-      if (focusable.length === 0) return;
-      const first = focusable[0];
-      const last = focusable.at(-1);
-      const outside = !dialogRef.current.contains(document.activeElement);
-      if (e.shiftKey && (outside || document.activeElement === first)) {
-        e.preventDefault();
-        last.focus();
-      } else if (!e.shiftKey && (outside || document.activeElement === last)) {
-        e.preventDefault();
-        first.focus();
-      }
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
-
-  useEffect(() => () => opener?.focus(), [opener]);
+  useModal(dialogRef, onClose, opener);
 
   return (
     <div className="modal-backdrop progress-sheet-backdrop" onClick={onClose}>

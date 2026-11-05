@@ -1,4 +1,4 @@
-import { CURRENT_VERSION, migrate } from './migrate.js';
+import { CURRENT_VERSION, migrate, normalizeSessions } from './migrate.js';
 import { isObject, isValidPlans, isValidSession } from './schema.js';
 
 const APP = 'reps';
@@ -45,5 +45,6 @@ export const parseBackup = (text) => {
   if (!isValidPlans(data.plans)) return INVALID;
   if (!Array.isArray(data.sessions) || !data.sessions.every(isValidSession)) return INVALID;
   const migrated = migrate({ plans: data.plans, sessions: data.sessions }, data.version);
-  return { ok: true, plans: withExistingActivePlan(migrated.plans), sessions: migrated.sessions };
+  const plans = withExistingActivePlan(migrated.plans);
+  return { ok: true, plans, sessions: normalizeSessions(plans, migrated.sessions) };
 };
