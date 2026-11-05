@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { MAX_SETS, PALETTE, parseSets } from '../lib/plan.js';
 
-const SetsInput = ({ exercise, onChange }) => {
+const SetsInput = ({ id, exercise, onChange }) => {
   const [draft, setDraft] = useState(null);
 
   const onInput = (value) => {
@@ -12,6 +12,7 @@ const SetsInput = ({ exercise, onChange }) => {
 
   return (
     <input
+      id={id}
       className="field-input narrow"
       type="number"
       inputMode="numeric"
@@ -94,15 +95,20 @@ export function PlanDay({ day, onBack, onUpdateDay, onAddExercise, onUpdateExerc
               >↓</button>
               <button className="icon-btn danger" aria-label="Borrar ejercicio" onClick={() => confirmRemove(ex)}>✕</button>
             </div>
-            <div className="ex-edit-grid">
+            <div className="ex-edit-sets">
+              <label className="field-label" htmlFor={`sets-${ex.id}`}>Series</label>
+              <label className="field-label ex-edit-reps-label" htmlFor={`reps-${ex.id}`}>Reps</label>
               <SetsInput
+                id={`sets-${ex.id}`}
                 exercise={ex}
                 onChange={(sets) => onUpdateExercise(ex.id, { sets })}
               />
               <input
+                id={`reps-${ex.id}`}
                 className="field-input"
                 value={ex.reps}
-                placeholder="Reps: 8, 10/pierna, 30-45s…"
+                placeholder="8, 10/pierna, 30-45s…"
+                aria-label={`Reps de ${ex.name || 'ejercicio'}`}
                 onInput={(e) => onUpdateExercise(ex.id, { reps: e.target.value })}
                 onChange={() => {}}
               />

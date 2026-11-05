@@ -16,22 +16,19 @@ const byDate = (a, b) => {
   return 0;
 };
 
-const migrate1to2 = ({ plans, sessions }) => {
+export const normalizeSessions = (plans, sessions) => {
   const lookup = plans ?? DEFAULT_PLANS;
   const activePlanId = getActivePlan(lookup).id;
-  return {
-    plans,
-    sessions: sessions
-      .map(s => ({
-        planId: s.planId || findPlanByDay(lookup, s.dayId)?.id || activePlanId,
-        dayId: s.dayId,
-        date: s.date,
-        exercises: s.exercises,
-        notes: s.notes || {},
-      }))
-      .sort(byDate),
-  };
+  return sessions
+    .map(s => ({
+      ...s,
+      planId: s.planId || findPlanByDay(lookup, s.dayId)?.id || activePlanId,
+      notes: s.notes || {},
+    }))
+    .sort(byDate);
 };
+
+const migrate1to2 = ({ plans, sessions }) => ({ plans, sessions: normalizeSessions(plans, sessions) });
 
 const MIGRATIONS = { 1: migrate1to2 };
 

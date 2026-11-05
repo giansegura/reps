@@ -58,6 +58,8 @@ test('la nota admite espacios y el espacio fuera de un campo arranca el descanso
   await expect(rest).toHaveText('00:00');
   await page.getByRole('button', { name: 'Guardar nota' }).click();
   await expect(page.getByRole('button', { name: /Nota de Sentadilla: codos pegados/ })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Editar nota de Sentadilla' })).toBeFocused();
+  await page.evaluate(() => document.activeElement.blur());
   await page.keyboard.press('Space');
   await expect(rest).toHaveText('00:01', { timeout: 3000 });
 });

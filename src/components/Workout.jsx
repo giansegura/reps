@@ -45,6 +45,8 @@ const INTERACTIVE = 'input, textarea, select, button, a, [contenteditable="true"
 
 const isInteractive = (target) => target instanceof Element && !!target.closest(INTERACTIVE);
 
+const isModalOpen = () => !!document.querySelector('[aria-modal="true"]');
+
 const useSecondsSince = (start, interval) => {
   const [now, setNow] = useState(() => Date.now());
 
@@ -70,7 +72,7 @@ const RestTimer = ({ startedAt, onRestart }) => {
 
   useEffect(() => {
     const onKeyDown = (e) => {
-      if (e.code !== 'Space' || e.repeat || isInteractive(e.target)) return;
+      if (e.code !== 'Space' || e.repeat || isInteractive(e.target) || isModalOpen()) return;
       e.preventDefault();
       onRestart();
     };
@@ -134,10 +136,13 @@ export function Workout({
   onFinish,
   onExit,
 }) {
-  const [notesExercise, setNotesExercise] = useState(null);
-  const [editingNoteExercise, setEditingNoteExercise] = useState(null);
-  const closeNotes = useCallback(() => setNotesExercise(null), []);
-  const closeNoteEditor = useCallback(() => setEditingNoteExercise(null), []);
+  const [notesSheet, setNotesSheet] = useState(null);
+  const [noteEditor, setNoteEditor] = useState(null);
+  const closeNotes = useCallback(() => setNotesSheet(null), []);
+  const closeNoteEditor = useCallback(() => setNoteEditor(null), []);
+  const noteButtons = useRef({});
+  const openNoteEditor = (ex, e) =>
+    setNoteEditor({ exercise: ex, opener: e.currentTarget, fallback: noteButtons.current[ex.id] });
   const [progressSheet, setProgressSheet] = useState(null);
   const closeProgress = useCallback(() => setProgressSheet(null), []);
 
@@ -210,7 +215,7 @@ export function Workout({
                     <button
                       className="info-btn"
                       aria-label={`Notas de ${ex.name}`}
-                      onClick={() => setNotesExercise(ex)}
+                      onClick={(e) => setNotesSheet({ exercise: ex, opener: e.currentTarget })}
                     >
                       <span aria-hidden="true">i</span>
                     </button>
@@ -230,10 +235,11 @@ export function Workout({
                     </svg>
                   </button>
                   <button
+                    ref={(el) => { noteButtons.current[ex.id] = el; }}
                     className={`note-btn ${sessionNote ? 'active' : ''}`}
                     aria-label={sessionNote ? `Editar nota de ${ex.name}` : `Añadir nota a ${ex.name}`}
                     aria-pressed={!!sessionNote}
-                    onClick={() => setEditingNoteExercise(ex)}
+                    onClick={(e) => openNoteEditor(ex, e)}
                   >
                     <span aria-hidden="true">✎</span>
                   </button>
@@ -243,7 +249,7 @@ export function Workout({
                 <button
                   className="ex-note-preview"
                   aria-label={`Nota de ${ex.name}: ${sessionNote}. Editar`}
-                  onClick={() => setEditingNoteExercise(ex)}
+                  onClick={(e) => openNoteEditor(ex, e)}
                 >
                   {sessionNote}
                 </button>
@@ -318,7 +324,9 @@ export function Workout({
           );
         })}
       </div>
-      {notesExercise && <ExerciseNotes exercise={notesExercise} onClose={closeNotes} />}
+      {notesSheet && (
+        <ExerciseNotes exercise={notesSheet.exercise} opener={notesSheet.opener} onClose={closeNotes} />
+      )}
       {progressSheet && (
         <ProgressSheet
           exercise={progressSheet.exercise}
@@ -333,10 +341,12 @@ export function Workout({
           onClose={closeProgress}
         />
       )}
-      {editingNoteExercise && (
+      {noteEditor && (
         <ExerciseNoteEditor
-          exercise={editingNoteExercise}
-          value={currentNotes[editingNoteExercise.id] || ''}
+          exercise={noteEditor.exercise}
+          opener={noteEditor.opener}
+          fallback={noteEditor.fallback}
+          value={currentNotes[noteEditor.exercise.id] || ''}
           onSave={onSaveNote}
           onClose={closeNoteEditor}
         />

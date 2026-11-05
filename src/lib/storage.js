@@ -50,11 +50,6 @@ const keepCorruptCopy = (key, raw, onCorrupt) => {
   onCorrupt?.();
 };
 
-const writeJSON = async (key, data) => {
-  if (isReadOnly()) throw new ReadOnlyError();
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
 const setRaw = (key, value) => {
   if (value === null) localStorage.removeItem(key);
   else localStorage.setItem(key, value);
@@ -70,7 +65,7 @@ const restore = (previous) => {
 };
 
 export const writeAll = (entries) => {
-  if (isReadOnly()) throw new ReadOnlyError();
+  beginWrite();
   const previous = Object.fromEntries(Object.keys(entries).map(key => [key, localStorage.getItem(key)]));
   localStorage.setItem(JOURNAL_KEY, JSON.stringify(previous));
   try {
@@ -93,6 +88,25 @@ export const recoverJournal = ({ onCorrupt } = {}) => {
   if (isJournal(data)) Object.entries(data).forEach(([key, value]) => setRaw(key, value));
   else keepCorruptCopy(JOURNAL_KEY, raw, onCorrupt);
   localStorage.removeItem(JOURNAL_KEY);
+};
+
+const beginWrite = () => {
+  if (isReadOnly()) throw new ReadOnlyError();
+  recoverJournal();
+  if (isReadOnly()) throw new ReadOnlyError();
+};
+
+const writeJSON = async (key, data) => {
+  beginWrite();
+  localStorage.setItem(key, JSON.stringify(data));
+};
+
+const keepCorruptVersion = (onCorrupt) => {
+  try {
+    keepCorruptCopy(VERSION_KEY, readRaw(VERSION_KEY), onCorrupt);
+  } catch (e) {
+    console.error(e);
+  }
 };
 
 export const loadSessions = async ({ onCorrupt } = {}) => {
@@ -129,7 +143,7 @@ export const loadData = async ({ onCorrupt } = {}) => {
   if (isReadOnly()) return { status: 'newer' };
   recoverJournal({ onCorrupt });
   const version = readVersion();
-  if (version === null) keepCorruptCopy(VERSION_KEY, readRaw(VERSION_KEY), onCorrupt);
+  if (version === null) keepCorruptVersion(onCorrupt);
   const from = version ?? 1;
   if (from > CURRENT_VERSION) return { status: 'newer' };
   const [sessions, plans] = await Promise.all([loadSessions({ onCorrupt }), loadPlans({ onCorrupt })]);

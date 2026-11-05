@@ -1,8 +1,9 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
+import { createBackup } from './lib/backup.js';
 
 const storedPlans = () => JSON.parse(localStorage.getItem('reps-plans'));
 
@@ -327,5 +328,50 @@ describe('App · exportar historial para IA', () => {
     const text = await file.text();
     expect(text).toContain('# Historial de entrenamientos · Reps');
     expect(text).toContain('### 2026-03-01 · domingo 10:15 · Full Body › Día 1\n- Sentadilla: 60 kg × 8\n');
+  });
+});
+
+describe('App · otra versión más nueva actualiza los datos durante la sesión', () => {
+  const NEWER = 'Tus datos son de una versión más nueva de Reps. Recarga la app';
+
+  beforeEach(() => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('lo avisa al editar un plan', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Editar plan' }));
+    localStorage.setItem('reps-version', '3');
+    await user.type(screen.getByRole('textbox', { name: 'Nombre del plan' }), 'x');
+    expect(await screen.findByText(new RegExp(NEWER))).toBeTruthy();
+  });
+
+  it('lo avisa al guardar un entreno y no lo cierra', async () => {
+    const user = userEvent.setup();
+    render(<App />);
+    await user.click((await screen.findAllByRole('button', { name: /Día 1/ }))[0]);
+    await user.click(screen.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }));
+    localStorage.setItem('reps-version', '3');
+    await user.click(screen.getByRole('button', { name: /^Guardar entreno/ }));
+    expect(await screen.findByText(new RegExp(NEWER))).toBeTruthy();
+    expect(screen.getByRole('button', { name: '← Salir' })).toBeTruthy();
+  });
+
+  it('lo avisa al importar una copia', async () => {
+    vi.stubGlobal('confirm', vi.fn(() => true));
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Full Body/ }));
+    localStorage.setItem('reps-version', '3');
+    const backup = createBackup({ activePlanId: 'p9', plans: [{ id: 'p9', name: 'Otro', days: [] }] }, [], new Date());
+    const file = new File([JSON.stringify(backup)], 'reps.json', { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [file] } });
+    expect(await screen.findByText(new RegExp(NEWER))).toBeTruthy();
   });
 });

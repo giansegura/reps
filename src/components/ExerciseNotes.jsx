@@ -1,17 +1,14 @@
-import { useEffect } from 'react';
+import { useRef } from 'react';
+import { useModal } from './useModal.js';
 
-export function ExerciseNotes({ exercise, onClose }) {
-  useEffect(() => {
-    const onKeyDown = (e) => {
-      if (e.key === 'Escape') onClose();
-    };
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [onClose]);
+export function ExerciseNotes({ exercise, opener, onClose }) {
+  const dialogRef = useRef(null);
+  useModal(dialogRef, onClose, opener);
 
   return (
     <div className="modal-backdrop" onClick={onClose}>
       <div
+        ref={dialogRef}
         className="modal"
         role="dialog"
         aria-modal="true"

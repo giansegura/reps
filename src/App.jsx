@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { DEFAULT_PLANS } from './data/plan.js';
 import {
+  ReadOnlyError,
   loadData,
   saveAllData,
   saveSessions,
@@ -45,6 +46,10 @@ import { PlanList } from './components/PlanList.jsx';
 import { PlanDay } from './components/PlanDay.jsx';
 import { Toast } from './components/Toast.jsx';
 import { UpdateRequired } from './components/UpdateRequired.jsx';
+
+const NEWER_DATA_TOAST = '✗ Tus datos son de una versión más nueva de Reps. Recarga la app';
+
+const saveErrorToast = (e, fallback) => (e instanceof ReadOnlyError ? NEWER_DATA_TOAST : fallback);
 
 const isFilled = (value) => value !== '' && value !== undefined;
 
@@ -94,7 +99,7 @@ export default function App() {
   const persistPlans = (state) => {
     savePlans(state).catch((e) => {
       console.error(e);
-      showToast('✗ Error guardando plan');
+      showToast(saveErrorToast(e, '✗ Error guardando plan'));
     });
   };
 
@@ -199,7 +204,7 @@ export default function App() {
       await saveAllData({ plans: result.plans, sessions: result.sessions });
     } catch (e) {
       console.error(e);
-      showToast('✗ No hay espacio para importar');
+      showToast(saveErrorToast(e, '✗ No hay espacio para importar'));
       return;
     }
     setPlansState(result.plans);
@@ -322,7 +327,7 @@ export default function App() {
       await saveSessions(next);
     } catch (e) {
       console.error(e);
-      showToast('✗ No se pudo guardar el entreno');
+      showToast(saveErrorToast(e, '✗ No se pudo guardar el entreno'));
       return;
     }
     setSessions(next);

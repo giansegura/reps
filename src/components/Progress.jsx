@@ -5,16 +5,29 @@ const optionValue = (day, exercise) => `${day.id}:${exercise.id}`;
 
 export const Progress = ({ plan, sessions, period, metric, onPeriodChange, onMetricChange, onBack }) => {
   const days = plan.days.filter(d => d.exercises.length > 0);
-  const [selected, setSelected] = useState(() => optionValue(days[0], days[0].exercises[0]));
+  const [selected, setSelected] = useState(() => (days[0] ? optionValue(days[0], days[0].exercises[0]) : null));
+  const header = (
+    <div className="page-header">
+      <button className="back-btn" onClick={onBack}>← Inicio</button>
+      <h1 className="page-title">{plan.name}</h1>
+    </div>
+  );
+
+  if (days.length === 0) {
+    return (
+      <>
+        {header}
+        <p className="empty-text">Este plan aún no tiene ejercicios</p>
+      </>
+    );
+  }
+
   const day = days.find(d => d.exercises.some(ex => optionValue(d, ex) === selected)) ?? days[0];
   const exercise = day.exercises.find(ex => optionValue(day, ex) === selected) ?? day.exercises[0];
 
   return (
     <>
-      <div className="page-header">
-        <button className="back-btn" onClick={onBack}>← Inicio</button>
-        <h1 className="page-title">{plan.name}</h1>
-      </div>
+      {header}
       <select
         className="field-input progress-select"
         aria-label="Ejercicio"

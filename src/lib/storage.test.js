@@ -246,6 +246,38 @@ describe('writeAll', () => {
     expect(localStorage.getItem('reps-journal')).toBeNull();
   });
 
+  it('si no puede restaurar, la siguiente escritura termina de deshacer el cambio', async () => {
+    localStorage.setItem('reps-sessions', 'viejo');
+    const setItem = localStorage.setItem;
+    localStorage.setItem = (key, value) => {
+      if (key === 'reps-plans' || value === 'viejo') throw new Error('QuotaExceededError');
+      setItem(key, value);
+    };
+    expect(() => writeAll({ 'reps-sessions': 'nuevo', 'reps-plans': 'nuevo' })).toThrow('QuotaExceededError');
+    expect(localStorage.getItem('reps-sessions')).toBe('nuevo');
+    localStorage.setItem = setItem;
+    await saveSessions([]);
+    expect(localStorage.getItem('reps-sessions')).toBe('[]');
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+  });
+
+  it('no escribe si el diario pendiente devuelve una versión más nueva', async () => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-journal', JSON.stringify({ 'reps-version': '3' }));
+    await expect(savePlans(plans)).rejects.toThrow(ReadOnlyError);
+    expect(() => writeAll({ 'reps-plans': 'x' })).toThrow(ReadOnlyError);
+    expect(localStorage.getItem('reps-plans')).toBeNull();
+  });
+
+  it('una escritura aplica antes el diario pendiente', async () => {
+    localStorage.setItem('reps-sessions', 'a medias');
+    localStorage.setItem('reps-journal', JSON.stringify({ 'reps-sessions': 'viejo', 'reps-plans': null }));
+    await savePlans(plans);
+    expect(localStorage.getItem('reps-sessions')).toBe('viejo');
+    expect(JSON.parse(localStorage.getItem('reps-plans'))).toEqual(plans);
+    expect(localStorage.getItem('reps-journal')).toBeNull();
+  });
+
   it('si no puede guardar el diario no toca nada', () => {
     localStorage.setItem('reps-plans', 'viejo');
     failOn('reps-journal');
@@ -366,6 +398,16 @@ describe('loadData', () => {
     expect(localStorage.getItem('reps-version-corrupt')).toBe('abc');
     expect(localStorage.getItem('reps-version')).toBe('2');
     expect(onCorrupt).toHaveBeenCalledOnce();
+  });
+
+  it('arranca con una versión dañada aunque no pueda guardar su copia', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    localStorage.setItem('reps-version', 'abc');
+    failOn('reps-version-corrupt');
+    const data = await loadData();
+    expect(data.status).toBe('ok');
+    expect(localStorage.getItem('reps-version')).toBe('2');
+    vi.restoreAllMocks();
   });
 
   it('sigue con los datos migrados aunque no pueda guardarlos', async () => {

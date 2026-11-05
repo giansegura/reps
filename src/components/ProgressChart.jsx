@@ -82,8 +82,9 @@ export const ProgressChart = ({
               const isCurrent = i === periods.length - 1;
               const value = p.value === 0 ? 'sin entrenos' : formatProgressValue(p.value, unit);
               return (
-                <li key={p.start.getTime()} className="progress-bar-item" aria-label={`${periodAriaLabel(p.start, period)}: ${value}`}>
-                  <span className="progress-bar-track">
+                <li key={p.start.getTime()} className="progress-bar-item">
+                  <span className="sr-only">{`${periodAriaLabel(p.start, period)}: ${value}`}</span>
+                  <span className="progress-bar-track" aria-hidden="true">
                     <span
                       className="progress-bar-fill"
                       style={{

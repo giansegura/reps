@@ -1,5 +1,6 @@
 import { act, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
+import { useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { Workout } from './Workout.jsx';
 
@@ -130,6 +131,77 @@ describe('Workout · temporizadores', () => {
     await user.click(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
     await user.type(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }), ' ');
     expect(onRestartRest).not.toHaveBeenCalled();
+  });
+});
+
+describe('Workout · espacio con una hoja abierta', () => {
+  it.each([
+    ['progreso', 'Progreso de Sentadilla'],
+    ['nota', 'Añadir nota a Sentadilla'],
+  ])('no reinicia el descanso con la hoja de %s abierta aunque el foco salga de ella', async (_label, opener) => {
+    const user = userEvent.setup();
+    const onRestartRest = vi.fn();
+    renderWorkout({ onRestartRest });
+    await user.click(screen.getByRole('button', { name: opener }));
+    act(() => document.activeElement.blur());
+    await user.keyboard(' ');
+    expect(onRestartRest).not.toHaveBeenCalled();
+  });
+});
+
+const notedDay = { ...day, exercises: [{ ...day.exercises[0], notes: 'Espalda recta' }] };
+
+describe.each([
+  ['notas del ejercicio', 'Notas de Sentadilla', 'Sentadilla', { activeDay: notedDay }],
+  ['nota del entreno', 'Añadir nota a Sentadilla', 'Nota · Sentadilla', {}],
+])('Workout · hoja de %s', (_label, openerName, dialogName, props) => {
+  it('al cerrarla con Escape el foco vuelve al botón que la abrió', async () => {
+    const user = userEvent.setup();
+    renderWorkout(props);
+    const opener = screen.getByRole('button', { name: openerName });
+    await user.click(opener);
+    expect(screen.getByRole('dialog', { name: dialogName })).toBeTruthy();
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it('el tabulador no sale de la hoja', async () => {
+    const user = userEvent.setup();
+    renderWorkout(props);
+    await user.click(screen.getByRole('button', { name: openerName }));
+    const dialog = screen.getByRole('dialog', { name: dialogName });
+    for (let i = 0; i < 5; i++) {
+      await user.tab();
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+    for (let i = 0; i < 5; i++) {
+      await user.tab({ shift: true });
+      expect(dialog.contains(document.activeElement)).toBe(true);
+    }
+  });
+});
+
+const NotesHarness = () => {
+  const [notes, setNotes] = useState({ e1: 'codos pegados' });
+  const saveNote = (exId, text) => setNotes(prev => {
+    const next = { ...prev };
+    if (text.trim()) next[exId] = text.trim();
+    else delete next[exId];
+    return next;
+  });
+  return workoutElement({ currentNotes: notes, onSaveNote: saveNote });
+};
+
+describe('Workout · borrar la nota desde su vista previa', () => {
+  it('devuelve el foco al botón de nota del ejercicio', async () => {
+    const user = userEvent.setup();
+    render(<NotesHarness />);
+    await user.click(screen.getByRole('button', { name: /^Nota de Sentadilla: codos pegados/ }));
+    await user.clear(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }));
+    await user.click(screen.getByRole('button', { name: 'Guardar nota' }));
+    expect(screen.queryByRole('button', { name: /^Nota de Sentadilla:/ })).toBeNull();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
   });
 });
 
