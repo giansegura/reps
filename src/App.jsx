@@ -14,6 +14,8 @@ import {
 import { appendSession, latestSession } from './lib/session.js';
 import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
 import { historyFileName, renderHistory } from './lib/history.js';
+import { createPlanFile, planFileName, readPlanFile } from './lib/planFile.js';
+import { diffPlans, reconcilePlan, resolveImportTarget } from './lib/planImport.js';
 import { shareOrDownload } from './lib/share.js';
 import {
   createDay,
@@ -33,6 +35,8 @@ import {
   addPlan,
   removePlan,
   renamePlan,
+  replacePlan,
+  withFreshIds,
   setActivePlan,
   updatePlanDays,
   getActivePlan,
@@ -44,12 +48,26 @@ import { Plans } from './components/Plans.jsx';
 import { Progress } from './components/Progress.jsx';
 import { PlanList } from './components/PlanList.jsx';
 import { PlanDay } from './components/PlanDay.jsx';
+import { PlanImport } from './components/PlanImport.jsx';
 import { Toast } from './components/Toast.jsx';
 import { UpdateRequired } from './components/UpdateRequired.jsx';
 
 const NEWER_DATA_TOAST = '✗ Tus datos son de una versión más nueva de Reps. Recarga la app';
 
 const saveErrorToast = (e, fallback) => (e instanceof ReadOnlyError ? NEWER_DATA_TOAST : fallback);
+
+const PLAN_FILE_ERRORS = {
+  invalid: '✗ Archivo no válido',
+  backup: '✗ Este archivo es una copia completa. Restáurala con «Importar copia» en Planes',
+  newer: '✗ Este archivo es de una versión más nueva de Reps. Actualiza la app e inténtalo de nuevo',
+};
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+const newPlanQuestion = (plan) => {
+  const exercises = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
+  return `Este plan no está en la app. ¿Añadirlo como plan nuevo?\n\n«${plan.name}»: ${plural(plan.days.length, 'día', 'días')} y ${plural(exercises, 'ejercicio', 'ejercicios')}.`;
+};
 
 const isFilled = (value) => value !== '' && value !== undefined;
 
@@ -74,6 +92,7 @@ export default function App() {
   const [progressPeriod, setProgressPeriod] = useState('week');
   const [progressMetric, setProgressMetric] = useState('volume');
   const [editingDayId, setEditingDayId] = useState(null);
+  const [planImport, setPlanImport] = useState(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [newerData, setNewerData] = useState(false);
@@ -188,12 +207,74 @@ export default function App() {
     return shareFile(new File([text], historyFileName(now), { type: 'text/markdown' }));
   };
 
+  const exportPlan = () => {
+    const now = new Date();
+    const json = `${JSON.stringify(createPlanFile(editingPlan, sessions, now), null, 2)}\n`;
+    return shareFile(new File([json], planFileName(editingPlan, now), { type: 'application/json' }));
+  };
+
+  const savePlansNow = async (state) => {
+    try {
+      await savePlans(state);
+      return true;
+    } catch (e) {
+      console.error(e);
+      showToast(saveErrorToast(e, '✗ Error guardando plan'));
+      return false;
+    }
+  };
+
+  const addImportedPlan = async (plan) => {
+    if (!confirm(newPlanQuestion(plan))) return;
+    const fresh = withFreshIds(plan);
+    const state = addPlan(plansState, fresh);
+    if (!(await savePlansNow(state))) return;
+    setPlansState(state);
+    openPlanEditor(fresh.id, planReturnView);
+    showToast('✓ Plan añadido');
+  };
+
+  const importPlan = async (file) => {
+    const result = await readPlanFile(file);
+    if (!result.ok) {
+      showToast(PLAN_FILE_ERRORS[result.reason]);
+      return;
+    }
+    const target = resolveImportTarget(plansState, editingPlanId, result.plan);
+    if (target.kind === 'other') {
+      showToast(`Este archivo es del plan «${target.name}». Ábrelo desde ese plan para importarlo`);
+      return;
+    }
+    if (target.kind === 'new') {
+      await addImportedPlan(result.plan);
+      return;
+    }
+    const next = reconcilePlan(editingPlan, result.plan);
+    setPlanImport({ plan: next, diff: diffPlans(editingPlan, next) });
+    setView('planImport');
+  };
+
+  const closePlanImport = () => {
+    setPlanImport(null);
+    setView('planList');
+  };
+
+  const applyPlanImport = async () => {
+    const state = replacePlan(plansState, planImport.plan);
+    if (!(await savePlansNow(state))) return;
+    setPlansState(state);
+    closePlanImport();
+    showToast('✓ Plan actualizado');
+  };
+
   const importData = async (file) => {
     const result = await readBackupFile(file);
     if (!result.ok) {
-      showToast(result.reason === 'newer'
-        ? '✗ Esta copia es de una versión más nueva de Reps. Actualiza la app e inténtalo de nuevo'
-        : '✗ Archivo no válido');
+      const messages = {
+        newer: '✗ Esta copia es de una versión más nueva de Reps. Actualiza la app e inténtalo de nuevo',
+        plan: '✗ Este archivo es de un solo plan. Impórtalo desde el plan con «Importar cambios»',
+      };
+      showToast(messages[result.reason] ?? '✗ Archivo no válido');
       return;
     }
     const planCount = result.plans.plans.length;
@@ -429,6 +510,16 @@ export default function App() {
             onAdd={addPlanDay}
             onRemove={removePlanDay}
             onMove={(dayId, delta) => commitDays(moveDay(editingDays, dayId, delta))}
+            onExportPlan={exportPlan}
+            onImportPlan={importPlan}
+          />
+        )}
+        {view === 'planImport' && editingPlan && planImport && (
+          <PlanImport
+            planName={editingPlan.name}
+            diff={planImport.diff}
+            onApply={applyPlanImport}
+            onCancel={closePlanImport}
           />
         )}
         {view === 'planDay' && editingDay && (

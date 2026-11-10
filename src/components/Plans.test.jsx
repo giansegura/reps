@@ -37,3 +37,19 @@ describe('Plans · exportar historial', () => {
     expect(onExportHistory).toHaveBeenCalledOnce();
   });
 });
+
+describe('Plans · tus datos', () => {
+  it('explica cada archivo', () => {
+    render(
+      <Plans plans={plans} activePlanId="p1" sessions={[]} onBack={vi.fn()} onActivate={vi.fn()} onEdit={vi.fn()}
+        onDuplicate={vi.fn()} onRemove={vi.fn()} onCreate={vi.fn()} onExport={vi.fn()} onExportHistory={vi.fn()} onImport={vi.fn()} />,
+    );
+    expect(screen.getByText('Se guardan solo en este dispositivo.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: 'Copia de seguridad' })).toBeTruthy();
+    expect(screen.getByText('Todos tus planes y entrenos en un archivo. Sirve para recuperarlos o pasarlos a otro móvil. Importar una copia reemplaza todo lo que tengas.')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 3, name: 'Historial para IA' })).toBeTruthy();
+    expect(screen.getByText('Un archivo de texto con todos tus entrenos para que una IA analice tu progreso. La IA solo lo lee, la app no puede volver a importarlo.')).toBeTruthy();
+    expect(screen.getByText('Para que una IA te cambie un plan, ábrelo y usa «Editar con IA».')).toBeTruthy();
+    expect(screen.queryByText(/listo para pegar o adjuntar/)).toBeNull();
+  });
+});

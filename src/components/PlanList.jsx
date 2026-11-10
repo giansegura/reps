@@ -1,6 +1,15 @@
+import { useRef } from 'react';
 import { countSessions } from '../lib/session.js';
 
-export function PlanList({ plan, planId, planName, sessions, onBack, onRename, onOpenDay, onAdd, onRemove, onMove }) {
+export function PlanList({ plan, planId, planName, sessions, onBack, onRename, onOpenDay, onAdd, onRemove, onMove, onExportPlan, onImportPlan }) {
+  const fileInput = useRef(null);
+
+  const handleFile = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (file) onImportPlan(file);
+  };
+
   const confirmRemove = (day) => {
     const count = countSessions(sessions, { planId, dayId: day.id });
     const warning = count > 0
@@ -61,6 +70,23 @@ export function PlanList({ plan, planId, planName, sessions, onBack, onRename, o
         </div>
       )}
       <button className="add-btn" onClick={onAdd}>Añadir día</button>
+      <section className="data-section">
+        <h2 className="data-title">Editar con IA</h2>
+        <p className="data-text">
+          Exporta este plan con sus entrenos, pídele a la IA los cambios y que te devuelva el archivo. Al importarlo verás qué cambia antes de aplicarlo. Solo cambia este plan, tus entrenos no se tocan.
+        </p>
+        <div className="data-actions">
+          <button className="ghost-btn" onClick={onExportPlan}>Exportar para IA</button>
+          <button className="ghost-btn" onClick={() => fileInput.current.click()}>Importar cambios</button>
+        </div>
+        <input
+          ref={fileInput}
+          type="file"
+          accept=".json,application/json,.txt,text/plain"
+          hidden
+          onChange={handleFile}
+        />
+      </section>
     </>
   );
 }

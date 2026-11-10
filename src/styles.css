@@ -354,6 +354,17 @@ button:disabled { cursor: not-allowed; }
 .data-actions { display: flex; gap: 8px; }
 .data-actions .ghost-btn { margin-top: 12px; }
 .data-history-btn { margin-top: 12px; }
+.data-subtitle { font-size: 13px; font-weight: 500; color: var(--fg-2); margin-top: 20px; }
+.data-hint { margin-top: 20px; }
+.import-plan { font-size: 13px; color: var(--fg-3); margin: -12px 0 20px; }
+.import-day { margin-top: 20px; }
+.import-day-title { font-size: 13px; font-weight: 600; color: var(--fg-2); }
+.import-lines { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.import-line { font-size: 13px; color: var(--fg-2); line-height: 1.45; overflow-wrap: break-word; }
+.import-line.added { color: var(--fg); }
+.import-line.removed { color: var(--fg-3); }
+.import-note { font-size: 13px; color: var(--fg-3); margin-top: 8px; }
+.import-actions { margin-top: 28px; }
 .crash { padding-top: 48px; }
 .crash .data-text { margin-top: 8px; }
 

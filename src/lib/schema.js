@@ -25,7 +25,7 @@ const isValidDay = (day) =>
   && Array.isArray(day.exercises)
   && day.exercises.every(isValidExercise);
 
-const isValidPlan = (plan) =>
+export const isValidPlan = (plan) =>
   isObject(plan)
   && isString(plan.id)
   && isString(plan.name)

@@ -54,12 +54,16 @@ export function Plans({ plans, activePlanId, sessions, onBack, onActivate, onEdi
       <section className="data-section">
         <h2 className="data-title">Tus datos</h2>
         <p className="data-text">Se guardan solo en este dispositivo.</p>
+        <h3 className="data-subtitle">Copia de seguridad</h3>
+        <p className="data-text">Todos tus planes y entrenos en un archivo. Sirve para recuperarlos o pasarlos a otro móvil. Importar una copia reemplaza todo lo que tengas.</p>
         <div className="data-actions">
           <button className="ghost-btn" onClick={onExport}>Exportar copia</button>
           <button className="ghost-btn" onClick={() => fileInput.current.click()}>Importar copia</button>
         </div>
+        <h3 className="data-subtitle">Historial para IA</h3>
+        <p className="data-text">Un archivo de texto con todos tus entrenos para que una IA analice tu progreso. La IA solo lo lee, la app no puede volver a importarlo.</p>
         <button className="ghost-btn data-history-btn" onClick={onExportHistory}>Exportar historial para IA</button>
-        <p className="data-text">Un archivo de texto con todos tus entrenos, listo para pegar o adjuntar en cualquier IA.</p>
+        <p className="data-text data-hint">Para que una IA te cambie un plan, ábrelo y usa «Editar con IA».</p>
         <input
           ref={fileInput}
           type="file"
