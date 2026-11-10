@@ -1,12 +1,12 @@
 const MISSING = '—';
 const DELETED_PLAN = { name: 'Plan eliminado' };
-const DELETED_DAY = { label: 'Día eliminado', exercises: [] };
+export const DELETED_DAY = { label: 'Día eliminado', exercises: [] };
 
 const pad = (n) => String(n).padStart(2, '0');
 
-const localDate = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+export const localDate = (date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
 
-const localTime = (date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
+export const localTime = (date) => `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 
 const weekday = (date) => date.toLocaleDateString('es-ES', { weekday: 'long' });
 
@@ -51,15 +51,15 @@ const repsText = (reps) => {
   return raw === '' ? MISSING : raw;
 };
 
-const setText = (set) => `${weightText(set.weight)} × ${repsText(set.reps)}`;
+export const setText = (set) => `${weightText(set.weight)} × ${repsText(set.reps)}`;
 
-const doneSets = (exData = {}) => Object.keys(exData)
+export const doneSets = (exData = {}) => Object.keys(exData)
   .map(Number)
   .sort((a, b) => a - b)
   .map(n => exData[n])
   .filter(set => set?.done);
 
-const noteText = (note) => (note ?? '').split(/\s*\n+\s*/).map(part => part.trim()).filter(Boolean).join(' / ');
+export const noteText = (note) => (note ?? '').split(/\s*\n+\s*/).map(part => part.trim()).filter(Boolean).join(' / ');
 
 const exerciseLines = (ex, exData, note) => {
   const sets = doneSets(exData);
@@ -70,7 +70,7 @@ const exerciseLines = (ex, exData, note) => {
   return lines;
 };
 
-const deletedExercise = (id) => ({ id, name: `Ejercicio eliminado (${id.slice(0, 8)})` });
+export const deletedExercise = (id) => ({ id, name: `Ejercicio eliminado (${id.slice(0, 8)})` });
 
 const findDay = (plansState, session) => {
   const plan = plansState.plans.find(p => p.id === session.planId) ?? DELETED_PLAN;

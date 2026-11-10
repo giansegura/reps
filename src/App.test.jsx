@@ -4,6 +4,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App.jsx';
 import { ErrorBoundary } from './components/ErrorBoundary.jsx';
 import { createBackup } from './lib/backup.js';
+import { DEFAULT_PLANS } from './data/plan.js';
+import { createPlanFile } from './lib/planFile.js';
 
 const storedPlans = () => JSON.parse(localStorage.getItem('reps-plans'));
 
@@ -373,5 +375,167 @@ describe('App · otra versión más nueva actualiza los datos durante la sesión
     const file = new File([JSON.stringify(backup)], 'reps.json', { type: 'application/json' });
     fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [file] } });
     expect(await screen.findByText(new RegExp(NEWER))).toBeTruthy();
+  });
+});
+
+describe('App · editar plan con IA', () => {
+  const session = {
+    planId: 'plan1',
+    dayId: 'day1',
+    date: new Date(2026, 2, 1, 10, 15).toISOString(),
+    exercises: { squat: { 1: { weight: '60', reps: '8', done: true } } },
+    notes: {},
+  };
+
+  const storedSessions = () => localStorage.getItem('reps-sessions');
+
+  const openEditor = async (user) => {
+    const utils = render(<App />);
+    await user.click(await screen.findByRole('button', { name: 'Editar plan' }));
+    return utils;
+  };
+
+  const exportedFile = async (user) => {
+    await user.click(screen.getByRole('button', { name: 'Exportar para IA' }));
+    return URL.createObjectURL.mock.calls.at(-1)[0];
+  };
+
+  const modifiedExport = async (user) => {
+    const data = JSON.parse(await (await exportedFile(user)).text());
+    const squat = data.plan.days[0].exercises[0];
+    data.plan.days[0].exercises[0] = { ...squat, name: 'Sentadilla trasera', sets: 4 };
+    return data;
+  };
+
+  const upload = (container, data, name = 'plan.json') => {
+    const file = new File([JSON.stringify(data)], name, { type: 'application/json' });
+    fireEvent.change(container.querySelector('input[type="file"]'), { target: { files: [file] } });
+  };
+
+  const otherPlan = { id: 'zz', name: 'Brazos', days: [{ id: 'dz', label: 'Día A', color: '#ef4444', exercises: [{ id: 'ez', name: 'Curl', sets: 3, reps: '12', allowBW: false, notes: '' }] }] };
+
+  beforeEach(() => {
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-sessions', JSON.stringify([session]));
+    vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('exporta el plan abierto', async () => {
+    const user = userEvent.setup();
+    await openEditor(user);
+    const file = await exportedFile(user);
+    expect(file.name).toMatch(/^reps-plan-full-body-\d{4}-\d{2}-\d{2}\.json$/);
+    expect(file.type).toBe('application/json');
+    const data = JSON.parse(await file.text());
+    expect(data).toMatchObject({ app: 'reps', kind: 'plan', version: 2 });
+    expect(data.plan.id).toBe('plan1');
+    expect(data.history).toHaveLength(1);
+  });
+
+  it('importar muestra el resumen y aplicar guarda solo el plan', async () => {
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    const data = await modifiedExport(user);
+    const sessionsBefore = storedSessions();
+    upload(container, data);
+    expect(await screen.findByRole('heading', { name: 'Revisar cambios' })).toBeTruthy();
+    expect(screen.getByText('Sentadilla trasera: antes «Sentadilla», 3×8 → 4×8')).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Aplicar cambios' }));
+    expect(await screen.findByText('✓ Plan actualizado')).toBeTruthy();
+    expect(storedPlans().plans[0].days[0].exercises[0]).toMatchObject({ id: 'squat', name: 'Sentadilla trasera', sets: 4 });
+    expect(storedSessions()).toBe(sessionsBefore);
+    expect(screen.getByRole('heading', { name: 'Editar con IA' })).toBeTruthy();
+  });
+
+  it('cancelar no cambia nada', async () => {
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    const data = await modifiedExport(user);
+    const plansBefore = localStorage.getItem('reps-plans');
+    upload(container, data);
+    await user.click(await screen.findByRole('button', { name: 'Cancelar' }));
+    expect(localStorage.getItem('reps-plans')).toBe(plansBefore);
+    expect(screen.getByRole('heading', { name: 'Editar con IA' })).toBeTruthy();
+  });
+
+  it('si falla el guardado no cambia el plan', async () => {
+    vi.spyOn(console, 'error').mockImplementation(() => {});
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    const data = await modifiedExport(user);
+    const plansBefore = localStorage.getItem('reps-plans');
+    upload(container, data);
+    await screen.findByRole('heading', { name: 'Revisar cambios' });
+    localStorage.setItem('reps-version', '3');
+    await user.click(screen.getByRole('button', { name: 'Aplicar cambios' }));
+    expect(await screen.findByText(/Tus datos son de una versión más nueva de Reps/)).toBeTruthy();
+    expect(localStorage.getItem('reps-plans')).toBe(plansBefore);
+    expect(screen.getByRole('heading', { name: 'Revisar cambios' })).toBeTruthy();
+  });
+
+  it('archivo de otro plan', async () => {
+    localStorage.setItem('reps-plans', JSON.stringify({ ...DEFAULT_PLANS, plans: [...DEFAULT_PLANS.plans, { id: 'p2', name: 'Pierna', days: [] }] }));
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    upload(container, createPlanFile({ id: 'p2', name: 'Pierna', days: [] }, [], new Date()));
+    expect(await screen.findByText('Este archivo es del plan «Pierna». Ábrelo desde ese plan para importarlo')).toBeTruthy();
+    expect(screen.queryByRole('heading', { name: 'Revisar cambios' })).toBeNull();
+  });
+
+  it('plan que no está en la app', async () => {
+    const confirm = vi.fn(() => true);
+    vi.stubGlobal('confirm', confirm);
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    upload(container, createPlanFile(otherPlan, [], new Date()));
+    expect(await screen.findByText('✓ Plan añadido')).toBeTruthy();
+    expect(confirm).toHaveBeenCalledWith('Este plan no está en la app. ¿Añadirlo como plan nuevo?\n\n«Brazos»: 1 día y 1 ejercicio.');
+    const added = storedPlans().plans.find(p => p.name === 'Brazos');
+    expect(storedPlans().plans).toHaveLength(2);
+    expect(added.id).not.toBe('zz');
+    expect(added.days[0].id).not.toBe('dz');
+    expect(added.days[0].exercises[0]).toMatchObject({ name: 'Curl', sets: 3, reps: '12' });
+    expect(added.days[0].exercises[0].id).not.toBe('ez');
+    expect(screen.getByRole('textbox', { name: 'Nombre del plan' }).value).toBe('Brazos');
+  });
+
+  it('plan que no está en la app: rechazar no cambia nada', async () => {
+    const confirm = vi.fn(() => false);
+    vi.stubGlobal('confirm', confirm);
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    const plansBefore = localStorage.getItem('reps-plans');
+    upload(container, createPlanFile(otherPlan, [], new Date()));
+    await vi.waitFor(() => expect(confirm).toHaveBeenCalled());
+    expect(localStorage.getItem('reps-plans')).toBe(plansBefore);
+    expect(screen.getByRole('textbox', { name: 'Nombre del plan' }).value).toBe('Full Body');
+  });
+
+  it('archivo no válido', async () => {
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    upload(container, { hola: 1 });
+    expect(await screen.findByText('✗ Archivo no válido')).toBeTruthy();
+  });
+
+  it('copia completa en Importar cambios', async () => {
+    const user = userEvent.setup();
+    const { container } = await openEditor(user);
+    upload(container, createBackup(DEFAULT_PLANS, [], new Date()));
+    expect(await screen.findByText('✗ Este archivo es una copia completa. Restáurala con «Importar copia» en Planes')).toBeTruthy();
+  });
+
+  it('archivo de plan en Importar copia', async () => {
+    const user = userEvent.setup();
+    const { container } = render(<App />);
+    await user.click(await screen.findByRole('button', { name: /Full Body/ }));
+    upload(container, createPlanFile(DEFAULT_PLANS.plans[0], [], new Date()));
+    expect(await screen.findByText('✗ Este archivo es de un solo plan. Impórtalo desde el plan con «Importar cambios»')).toBeTruthy();
   });
 });

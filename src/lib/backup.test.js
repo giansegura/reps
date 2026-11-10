@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { backupFileName, createBackup, parseBackup, readBackupFile } from './backup.js';
+import { createPlanFile } from './planFile.js';
 
 const plans = {
   activePlanId: 'p1',
@@ -97,6 +98,10 @@ describe('parseBackup', () => {
   it('rechaza copias de una versión más nueva aunque su formato sea otro', () => {
     expect(parseBackup(toText({ version: 3 }))).toEqual({ ok: false, reason: 'newer' });
     expect(parseBackup(toText({ version: 3, plans: 'otro formato' }))).toEqual({ ok: false, reason: 'newer' });
+  });
+
+  it('reconoce un archivo de plan', () => {
+    expect(parseBackup(JSON.stringify(createPlanFile(plans.plans[0], sessions, now)))).toEqual({ ok: false, reason: 'plan' });
   });
 
   it('usa el primer plan si activePlanId no existe', () => {

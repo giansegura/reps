@@ -14,11 +14,13 @@ const cloneDay = (day) => ({
   exercises: day.exercises.map(cloneExercise),
 });
 
-export const duplicatePlan = (plan) => ({
+export const withFreshIds = (plan) => ({
+  ...plan,
   id: crypto.randomUUID(),
-  name: `${plan.name} (copia)`,
   days: plan.days.map(cloneDay),
 });
+
+export const duplicatePlan = (plan) => ({ ...withFreshIds(plan), name: `${plan.name} (copia)` });
 
 export const addPlan = (state, plan, afterId) => {
   const index = state.plans.findIndex(p => p.id === afterId);
@@ -38,6 +40,11 @@ export const removePlan = (state, planId) => {
 export const renamePlan = (state, planId, name) => ({
   ...state,
   plans: state.plans.map(p => (p.id === planId ? { ...p, name } : p)),
+});
+
+export const replacePlan = (state, plan) => ({
+  ...state,
+  plans: state.plans.map(p => (p.id === plan.id ? plan : p)),
 });
 
 export const setActivePlan = (state, planId) => ({ ...state, activePlanId: planId });

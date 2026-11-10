@@ -10,7 +10,7 @@ export const parseSets = (value) => {
   return value !== '' && Number.isInteger(n) && n >= 1 && n <= MAX_SETS ? n : null;
 };
 
-const nextColor = (plan) => {
+export const nextColor = (plan) => {
   const used = new Set(plan.map(d => d.color));
   return PALETTE.find(c => !used.has(c)) || PALETTE[plan.length % PALETTE.length];
 };

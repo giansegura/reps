@@ -1,9 +1,11 @@
 import { CURRENT_VERSION, migrate, normalizeSessions } from './migrate.js';
+import { PLAN_FILE_KIND } from './planFile.js';
 import { isObject, isValidPlans, isValidSession } from './schema.js';
 
 const APP = 'reps';
 const INVALID = { ok: false, reason: 'invalid' };
 const NEWER = { ok: false, reason: 'newer' };
+const PLAN_FILE = { ok: false, reason: 'plan' };
 
 const withExistingActivePlan = (state) =>
   state.plans.some(p => p.id === state.activePlanId)
@@ -40,6 +42,7 @@ export const parseBackup = (text) => {
   } catch {
     return INVALID;
   }
+  if (isObject(data) && data.app === APP && data.kind === PLAN_FILE_KIND) return PLAN_FILE;
   if (!isObject(data) || data.app !== APP || !isVersion(data.version)) return INVALID;
   if (data.version > CURRENT_VERSION) return NEWER;
   if (!isValidPlans(data.plans)) return INVALID;
