@@ -11,12 +11,13 @@ import {
   savePlans,
   requestPersistence,
 } from './lib/storage.js';
-import { appendSession, latestSession } from './lib/session.js';
+import { appendSession, latestExerciseEntry } from './lib/session.js';
 import { backupFileName, createBackup, readBackupFile } from './lib/backup.js';
 import { historyFileName, renderHistory } from './lib/history.js';
 import { createPlanFile, planFileName, readPlanFile } from './lib/planFile.js';
 import { diffPlans, reconcilePlan, resolveImportTarget } from './lib/planImport.js';
 import { shareOrDownload } from './lib/share.js';
+import { linkSuperset, unlinkSuperset } from './lib/superset.js';
 import {
   createDay,
   addDay,
@@ -25,7 +26,6 @@ import {
   updateDay,
   createExercise,
   addExercise,
-  removeExercise,
   updateExercise,
   moveExercise,
 } from './lib/plan.js';
@@ -42,13 +42,16 @@ import {
   getActivePlan,
   findPlanByDay,
 } from './lib/plans.js';
+import { ConfirmSheet } from './components/ConfirmSheet.jsx';
 import { Home } from './components/Home.jsx';
 import { Workout } from './components/Workout.jsx';
 import { Plans } from './components/Plans.jsx';
 import { Progress } from './components/Progress.jsx';
 import { PlanList } from './components/PlanList.jsx';
 import { PlanDay } from './components/PlanDay.jsx';
+import { PlanExercise } from './components/PlanExercise.jsx';
 import { PlanImport } from './components/PlanImport.jsx';
+import { TabBar } from './components/TabBar.jsx';
 import { Toast } from './components/Toast.jsx';
 import { UpdateRequired } from './components/UpdateRequired.jsx';
 
@@ -62,37 +65,33 @@ const PLAN_FILE_ERRORS = {
   newer: '✗ Este archivo es de una versión más nueva de Reps. Actualiza la app e inténtalo de nuevo',
 };
 
+const TABS = ['home', 'progress', 'plans'];
+
+const NO_REST = { startedAt: null, alertSeconds: null };
+
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 
-const newPlanQuestion = (plan) => {
+const newPlanSummary = (plan) => {
   const exercises = plan.days.reduce((sum, d) => sum + d.exercises.length, 0);
-  return `Este plan no está en la app. ¿Añadirlo como plan nuevo?\n\n«${plan.name}»: ${plural(plan.days.length, 'día', 'días')} y ${plural(exercises, 'ejercicio', 'ejercicios')}.`;
-};
-
-const isFilled = (value) => value !== '' && value !== undefined;
-
-const isComplete = (set) => isFilled(set?.weight) && isFilled(set?.reps);
-
-const nextDone = (before, after) => {
-  if (!isComplete(after)) return false;
-  return isComplete(before) ? !!before.done : true;
+  return `«${plan.name}»: ${plural(plan.days.length, 'día', 'días')} y ${plural(exercises, 'ejercicio', 'ejercicios')}.`;
 };
 
 export default function App() {
   const [sessions, setSessions] = useState([]);
   const [plansState, setPlansState] = useState(DEFAULT_PLANS);
   const [editingPlanId, setEditingPlanId] = useState(null);
-  const [planReturnView, setPlanReturnView] = useState('home');
   const [view, setView] = useState('home');
   const [activeDay, setActiveDay] = useState(null);
   const [currentWorkout, setCurrentWorkout] = useState({});
   const [currentNotes, setCurrentNotes] = useState({});
   const [workoutStartedAt, setWorkoutStartedAt] = useState(null);
-  const [restStartedAt, setRestStartedAt] = useState(null);
+  const [rest, setRest] = useState(NO_REST);
   const [progressPeriod, setProgressPeriod] = useState('week');
   const [progressMetric, setProgressMetric] = useState('volume');
   const [editingDayId, setEditingDayId] = useState(null);
+  const [editingExerciseId, setEditingExerciseId] = useState(null);
   const [planImport, setPlanImport] = useState(null);
+  const [question, setQuestion] = useState(null);
   const [ready, setReady] = useState(false);
   const [loadError, setLoadError] = useState(null);
   const [newerData, setNewerData] = useState(false);
@@ -109,11 +108,19 @@ export default function App() {
     }, 2000);
   };
 
+  const ask = (options) => new Promise((resolve) => setQuestion({ options, resolve }));
+
+  const answer = (value) => {
+    question.resolve(value);
+    setQuestion(null);
+  };
+
   const activePlan = getActivePlan(plansState);
   const plan = activePlan.days;
   const editingPlan = plansState.plans.find(p => p.id === editingPlanId);
   const editingDays = editingPlan?.days ?? [];
   const editingDay = editingDays.find(d => d.id === editingDayId);
+  const editingExercise = editingDay?.exercises.find(e => e.id === editingExerciseId);
 
   const persistPlans = (state) => {
     savePlans(state).catch((e) => {
@@ -130,28 +137,28 @@ export default function App() {
   const commitDays = (nextDays) =>
     commitPlans(updatePlanDays(plansState, editingPlanId, () => nextDays));
 
+  const commitExercises = (fn) =>
+    commitDays(editingDays.map(d => (d.id === editingDayId ? { ...d, exercises: fn(d.exercises) } : d)));
+
   const activatePlan = (planId) => {
     commitPlans(setActivePlan(plansState, planId));
     setView('home');
   };
 
-  const openPlanEditor = (planId, returnView) => {
+  const openPlanEditor = (planId) => {
     setEditingPlanId(planId);
-    setPlanReturnView(returnView);
     setView('planList');
   };
 
   const closePlan = () => {
     setEditingPlanId(null);
-    setView(planReturnView);
+    setView('plans');
   };
 
   const createNewPlan = () => {
-    const name = prompt('Nombre del plan', `Plan ${plansState.plans.length + 1}`);
-    if (name === null) return;
-    const newPlan = createPlan(plansState.plans, name);
+    const newPlan = createPlan(plansState.plans, '');
     commitPlans(setActivePlan(addPlan(plansState, newPlan), newPlan.id));
-    openPlanEditor(newPlan.id, 'plans');
+    openPlanEditor(newPlan.id);
   };
 
   const duplicateExistingPlan = (planId) => {
@@ -165,22 +172,54 @@ export default function App() {
     showToast('Plan borrado');
   };
 
-  const addPlanDay = () => {
-    const day = createDay(editingDays);
-    commitDays(addDay(editingDays, day));
-    setEditingDayId(day.id);
+  const openPlanDay = (dayId) => {
+    setEditingDayId(dayId);
     setView('planDay');
   };
 
-  const removePlanDay = (dayId) => {
-    commitDays(removeDay(editingDays, dayId));
-    showToast('Día borrado');
+  const addPlanDay = () => {
+    const day = createDay(editingDays);
+    commitDays(addDay(editingDays, day));
+    openPlanDay(day.id);
   };
 
   const closePlanDay = () => {
     setEditingDayId(null);
     setView('planList');
   };
+
+  const removePlanDay = () => {
+    commitDays(removeDay(editingDays, editingDayId));
+    closePlanDay();
+    showToast('Día borrado');
+  };
+
+  const openPlanExercise = (exerciseId) => {
+    setEditingExerciseId(exerciseId);
+    setView('planExercise');
+  };
+
+  const closePlanExercise = () => {
+    setEditingExerciseId(null);
+    setView('planDay');
+  };
+
+  const addPlanExercise = () => {
+    const exercise = createExercise();
+    commitDays(addExercise(editingDays, editingDayId, exercise));
+    openPlanExercise(exercise.id);
+  };
+
+  const removePlanExercise = () => {
+    commitExercises(exercises => unlinkSuperset(exercises, editingExerciseId).filter(e => e.id !== editingExerciseId));
+    closePlanExercise();
+    showToast('Ejercicio borrado');
+  };
+
+  const linkPlanExercise = (partnerId) =>
+    commitExercises(exercises => (partnerId
+      ? linkSuperset(exercises, editingExerciseId, partnerId)
+      : unlinkSuperset(exercises, editingExerciseId)));
 
   const shareFile = async (file) => {
     try {
@@ -224,13 +263,18 @@ export default function App() {
     }
   };
 
-  const addImportedPlan = async (plan) => {
-    if (!confirm(newPlanQuestion(plan))) return;
-    const fresh = withFreshIds(plan);
+  const addImportedPlan = async (imported) => {
+    const accepted = await ask({
+      title: 'Este plan no está en la app',
+      text: `¿Añadirlo como plan nuevo? ${newPlanSummary(imported)}`,
+      confirmLabel: 'Añadir plan',
+    });
+    if (!accepted) return;
+    const fresh = withFreshIds(imported);
     const state = addPlan(plansState, fresh);
     if (!(await savePlansNow(state))) return;
     setPlansState(state);
-    openPlanEditor(fresh.id, planReturnView);
+    openPlanEditor(fresh.id);
     showToast('✓ Plan añadido');
   };
 
@@ -277,10 +321,14 @@ export default function App() {
       showToast(messages[result.reason] ?? '✗ Archivo no válido');
       return;
     }
-    const planCount = result.plans.plans.length;
-    const sessionCount = result.sessions.length;
-    const summary = `${planCount} ${planCount === 1 ? 'plan' : 'planes'} y ${sessionCount} ${sessionCount === 1 ? 'entreno' : 'entrenos'}`;
-    if (!confirm(`Se reemplazarán tus datos por ${summary}. ¿Continuar?`)) return;
+    const summary = `${plural(result.plans.plans.length, 'plan', 'planes')} y ${plural(result.sessions.length, 'entreno', 'entrenos')}`;
+    const accepted = await ask({
+      title: '¿Reemplazar tus datos?',
+      text: `Se reemplazarán tus datos por ${summary}.`,
+      confirmLabel: 'Reemplazar',
+      danger: true,
+    });
+    if (!accepted) return;
     try {
       await saveAllData({ plans: result.plans, sessions: result.sessions });
     } catch (e) {
@@ -311,7 +359,13 @@ export default function App() {
       const wip = loadWIP();
       const wipPlan = wip && findPlanByDay(activeState, wip.dayId);
       const wipDay = wipPlan?.days.find(d => d.id === wip.dayId);
-      if (wipDay && confirm(`Tienes un entreno sin terminar (${wipPlan.name} · ${wipDay.label}). ¿Retomar?`)) {
+      const resume = !!wipDay && await ask({
+        title: 'Tienes un entreno sin terminar',
+        text: `${wipPlan.name} · ${wipDay.label}`,
+        confirmLabel: 'Retomar',
+        cancelLabel: 'Descartar',
+      });
+      if (resume) {
         if (wipPlan.id !== activeState.activePlanId) {
           activeState = setActivePlan(activeState, wipPlan.id);
           savePlans(activeState).catch(console.error);
@@ -331,18 +385,16 @@ export default function App() {
   }, []);
 
   const startWorkout = (day) => {
-    const lastSession = latestSession(sessions, activePlan.id, day.id);
     const next = {};
     const notes = {};
     day.exercises.forEach(ex => {
-      const prevNote = lastSession?.notes?.[ex.id];
-      if (prevNote) notes[ex.id] = prevNote;
-      const prev = lastSession?.exercises?.[ex.id];
+      const last = latestExerciseEntry(sessions, activePlan.id, ex.id);
+      if (last?.note) notes[ex.id] = last.note;
       next[ex.id] = {};
       for (let i = 1; i <= ex.sets; i++) {
         next[ex.id][i] = {
-          weight: prev?.[i]?.weight || '',
-          reps: prev?.[i]?.reps || '',
+          weight: last?.sets?.[i]?.weight || '',
+          reps: last?.sets?.[i]?.reps || '',
           done: false,
         };
       }
@@ -352,15 +404,14 @@ export default function App() {
     const startedAt = Date.now();
     setCurrentNotes(notes);
     setWorkoutStartedAt(startedAt);
-    setRestStartedAt(null);
+    setRest(NO_REST);
     setView('workout');
     saveWIP(activePlan.id, day.id, next, notes, startedAt);
   };
 
-  const restartRest = () => setRestStartedAt(Date.now());
+  const restartRest = (alertSeconds) => setRest({ startedAt: Date.now(), alertSeconds });
 
   const updateSet = (exId, setNum, patch) => {
-    if (patch.done && !currentWorkout[exId]?.[setNum]?.done) restartRest();
     setCurrentWorkout(prev => {
       const next = {
         ...prev,
@@ -380,20 +431,16 @@ export default function App() {
     saveWIP(activePlan.id, activeDay.id, currentWorkout, next, workoutStartedAt);
   };
 
-  const saveField = (exId, setNum, field, value) => {
-    const before = currentWorkout[exId]?.[setNum] || {};
-    const after = { ...before, [field]: value };
-    updateSet(exId, setNum, { [field]: value, done: nextDone(before, after) });
-  };
+  const saveField = (exId, setNum, field, value) => updateSet(exId, setNum, { [field]: value });
 
-  const togglePC = (exId, setNum) => {
-    const before = currentWorkout[exId]?.[setNum] || {};
-    const weight = before.weight === 'PC' ? '' : 'PC';
-    updateSet(exId, setNum, { weight, done: nextDone(before, { ...before, weight }) });
-  };
+  const togglePC = (exId, setNum) =>
+    updateSet(exId, setNum, { weight: currentWorkout[exId]?.[setNum]?.weight === 'PC' ? '' : 'PC' });
 
-  const toggleDone = (exId, setNum) =>
-    updateSet(exId, setNum, { done: !currentWorkout[exId]?.[setNum]?.done });
+  const toggleDone = (exId, setNum, alertSeconds) => {
+    const done = !currentWorkout[exId]?.[setNum]?.done;
+    if (done) restartRest(alertSeconds);
+    updateSet(exId, setNum, { done });
+  };
 
   const finishWorkout = async () => {
     const session = {
@@ -423,20 +470,31 @@ export default function App() {
     setCurrentWorkout({});
     setCurrentNotes({});
     setWorkoutStartedAt(null);
-    setRestStartedAt(null);
+    setRest(NO_REST);
   };
 
   if (loadError) throw loadError;
 
   if (newerData) return <UpdateRequired />;
 
+  const confirmSheet = question && (
+    <ConfirmSheet {...question.options} onConfirm={() => answer(true)} onCancel={() => answer(false)} />
+  );
+
   if (!ready) {
-    return <div className="app" />;
+    return (
+      <>
+        <div className="app" />
+        {confirmSheet}
+      </>
+    );
   }
+
+  const tabbed = TABS.includes(view);
 
   return (
     <>
-      <div className={`app${view === 'workout' ? ' app-wide' : ''}`}>
+      <div className={`app${tabbed ? ' with-tabs' : ''}${view === 'workout' ? ' app-workout' : ''}`}>
         {view === 'home' && (
           <Home
             plan={plan}
@@ -445,8 +503,7 @@ export default function App() {
             sessions={sessions}
             onStartWorkout={startWorkout}
             onOpenPlans={() => setView('plans')}
-            onOpenPlan={() => openPlanEditor(activePlan.id, 'home')}
-            onOpenProgress={() => setView('progress')}
+            onOpenPlan={() => openPlanEditor(activePlan.id)}
           />
         )}
         {view === 'progress' && (
@@ -457,7 +514,6 @@ export default function App() {
             metric={progressMetric}
             onPeriodChange={setProgressPeriod}
             onMetricChange={setProgressMetric}
-            onBack={() => setView('home')}
           />
         )}
         {view === 'workout' && activeDay && (
@@ -466,7 +522,8 @@ export default function App() {
             currentWorkout={currentWorkout}
             currentNotes={currentNotes}
             startedAt={workoutStartedAt}
-            restStartedAt={restStartedAt}
+            restStartedAt={rest.startedAt}
+            restAlert={rest.alertSeconds}
             onRestartRest={restartRest}
             sessions={sessions}
             planId={activePlan.id}
@@ -487,9 +544,8 @@ export default function App() {
             plans={plansState.plans}
             activePlanId={activePlan.id}
             sessions={sessions}
-            onBack={() => setView('home')}
             onActivate={activatePlan}
-            onEdit={(planId) => openPlanEditor(planId, 'plans')}
+            onEdit={openPlanEditor}
             onDuplicate={duplicateExistingPlan}
             onRemove={removeExistingPlan}
             onCreate={createNewPlan}
@@ -501,14 +557,11 @@ export default function App() {
         {view === 'planList' && editingPlan && (
           <PlanList
             plan={editingDays}
-            planId={editingPlanId}
             planName={editingPlan.name}
-            sessions={sessions}
             onBack={closePlan}
             onRename={(name) => commitPlans(renamePlan(plansState, editingPlanId, name))}
-            onOpenDay={(dayId) => { setEditingDayId(dayId); setView('planDay'); }}
+            onOpenDay={openPlanDay}
             onAdd={addPlanDay}
-            onRemove={removePlanDay}
             onMove={(dayId, delta) => commitDays(moveDay(editingDays, dayId, delta))}
             onExportPlan={exportPlan}
             onImportPlan={importPlan}
@@ -525,16 +578,31 @@ export default function App() {
         {view === 'planDay' && editingDay && (
           <PlanDay
             day={editingDay}
+            planId={editingPlanId}
+            planName={editingPlan.name}
+            sessions={sessions}
             onBack={closePlanDay}
             onUpdateDay={(patch) => commitDays(updateDay(editingDays, editingDayId, patch))}
-            onAddExercise={() => commitDays(addExercise(editingDays, editingDayId, createExercise()))}
-            onUpdateExercise={(exId, patch) => commitDays(updateExercise(editingDays, editingDayId, exId, patch))}
-            onRemoveExercise={(exId) => commitDays(removeExercise(editingDays, editingDayId, exId))}
+            onAddExercise={addPlanExercise}
+            onOpenExercise={openPlanExercise}
             onMoveExercise={(exId, delta) => commitDays(moveExercise(editingDays, editingDayId, exId, delta))}
+            onRemoveDay={removePlanDay}
+          />
+        )}
+        {view === 'planExercise' && editingDay && editingExercise && (
+          <PlanExercise
+            day={editingDay}
+            exercise={editingExercise}
+            onBack={closePlanExercise}
+            onUpdate={(patch) => commitDays(updateExercise(editingDays, editingDayId, editingExerciseId, patch))}
+            onLink={linkPlanExercise}
+            onRemove={removePlanExercise}
           />
         )}
       </div>
+      {tabbed && <TabBar view={view} onChange={setView} />}
       <Toast msg={toast.msg} visible={toast.visible} />
+      {confirmSheet}
     </>
   );
 }

@@ -1,3 +1,5 @@
+import { doneSets } from './history.js';
+
 const PERIOD_COUNT = { week: 8, month: 6 };
 
 const numberFormat = new Intl.NumberFormat('es-ES', { useGrouping: 'always', maximumFractionDigits: 1 });
@@ -97,3 +99,11 @@ export const periodLabel = (start, previousStart, period) => {
 export const periodAriaLabel = (start, period) => (period === 'month'
   ? start.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })
   : `Semana del ${shortDay(start)}`);
+
+const newestFirst = (a, b) => (a.date < b.date ? 1 : a.date > b.date ? -1 : 0);
+
+export const recentSessions = (sessions, planId, exerciseId, limit = 3) => sessions
+  .filter(s => s.planId === planId && doneSets(s.exercises?.[exerciseId]).length > 0)
+  .sort(newestFirst)
+  .slice(0, limit)
+  .map(s => ({ date: s.date, sets: doneSets(s.exercises[exerciseId]) }));

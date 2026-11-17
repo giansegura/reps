@@ -1,6 +1,6 @@
 import { CURRENT_VERSION } from './migrate.js';
 import { DELETED_DAY, deletedExercise, doneSets, localDate, localTime, noteText, setText } from './history.js';
-import { nextColor } from './plan.js';
+import { MAX_REST, MIN_REST, parseRest, nextColor } from './plan.js';
 import { isObject, isValidPlan } from './schema.js';
 
 export const PLAN_FILE_KIND = 'plan';
@@ -14,7 +14,9 @@ export const PLAN_INSTRUCTIONS = [
   '   - No uses el «id» de un ejercicio para otro ejercicio diferente.',
   '   - Lo mismo con los días.',
   '3. «sets»: número entero de 1 a 100. «reps»: texto, por ejemplo "8", "8-10", "30-45s" o "10/pierna". «allowBW»: true si el ejercicio se puede hacer con peso corporal. «notes»: texto.',
-  '4. No cambies «app», «kind», «version» ni el «id» del plan.',
+  `4. «rest» (opcional): segundos de descanso tras cada serie antes de que la app avise, número entero de ${MIN_REST} a ${MAX_REST}. Si falta, son 120.`,
+  '5. «superset» (opcional): texto corto, por ejemplo "A". Los ejercicios seguidos de un mismo día que llevan el mismo valor se hacen en superserie: una serie de cada uno y después se descansa. Para quitar una superserie, borra «superset» de esos ejercicios.',
+  '6. No cambies «app», «kind», «version» ni el «id» del plan.',
 ].join('\n');
 
 const byDate = (a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
@@ -92,6 +94,18 @@ const setsOf = (value) => (typeof value === 'string' && /^\s*\d+\s*$/.test(value
 
 const repsOf = (value) => (typeof value === 'number' ? String(value) : value);
 
+const isBlank = (value) => value === undefined || value === null || value === '';
+
+const restOf = (value) => (isBlank(value) ? undefined : parseRest(value) ?? value);
+
+const supersetOf = (value) => {
+  if (isBlank(value)) return undefined;
+  const text = typeof value === 'number' ? String(value) : value;
+  return typeof text === 'string' ? text.trim() || undefined : text;
+};
+
+const optional = (key, value) => (value === undefined ? {} : { [key]: value });
+
 const normalizeExercise = (ex) => {
   if (!isObject(ex)) return ex;
   return {
@@ -101,6 +115,8 @@ const normalizeExercise = (ex) => {
     reps: repsOf(ex.reps),
     allowBW: ex.allowBW === undefined ? false : !!ex.allowBW,
     notes: ex.notes ?? '',
+    ...optional('rest', restOf(ex.rest)),
+    ...optional('superset', supersetOf(ex.superset)),
   };
 };
 

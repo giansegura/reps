@@ -43,6 +43,13 @@ describe('createPlanFile', () => {
     expect(PLAN_INSTRUCTIONS).toContain('conserva su «id»');
     expect(PLAN_INSTRUCTIONS).toContain('no le pongas «id»');
   });
+
+  it('las instrucciones explican el descanso y las superseries', () => {
+    expect(PLAN_INSTRUCTIONS).toContain('«rest» (opcional): segundos de descanso');
+    expect(PLAN_INSTRUCTIONS).toContain('de 15 a 900');
+    expect(PLAN_INSTRUCTIONS).toContain('«superset» (opcional)');
+    expect(PLAN_INSTRUCTIONS).toContain('que llevan el mismo valor se hacen en superserie');
+  });
 });
 
 describe('planHistory', () => {
@@ -157,6 +164,18 @@ describe('parsePlanFile', () => {
     expect(typeof result.plan.days[0].exercises[0].id).toBe('string');
   });
 
+  it('conserva el descanso y la superserie, y arregla sus tipos', () => {
+    const first = (patch) => parsePlanFile(withExercise(patch)).plan.days[0].exercises[0];
+    expect(first({ rest: 90, superset: 'A' })).toMatchObject({ rest: 90, superset: 'A' });
+    expect(first({ rest: '60', superset: 1 })).toMatchObject({ rest: 60, superset: '1' });
+    expect(first({ superset: ' A ' }).superset).toBe('A');
+  });
+
+  it('descanso o superserie vacíos cuentan como ausentes', () => {
+    expect(parsePlanFile(withExercise({ rest: null, superset: '' }))).toEqual({ ok: true, plan });
+    expect(parsePlanFile(withExercise({ rest: '', superset: '  ' }))).toEqual({ ok: true, plan });
+  });
+
   it('acepta un plan sin días', () => {
     expect(parsePlanFile(withPlan({ days: undefined }))).toEqual({ ok: true, plan: { ...plan, days: [] } });
   });
@@ -177,6 +196,10 @@ describe('parsePlanFile', () => {
     ['día sin etiqueta', withDay({ label: undefined })],
     ['plan sin nombre', withPlan({ name: undefined })],
     ['notas no texto', withExercise({ notes: 5 })],
+    ['descanso demasiado corto', withExercise({ rest: 5 })],
+    ['descanso demasiado largo', withExercise({ rest: 901 })],
+    ['descanso que no es un número', withExercise({ rest: 'mucho' })],
+    ['superserie que no es texto', withExercise({ superset: {} })],
     ['days no array', withPlan({ days: {} })],
     ['plan ausente', fileText({ plan: undefined })],
   ])('rechaza planes rotos: %s', (_label, text) => {

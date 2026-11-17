@@ -5,6 +5,21 @@ export const PALETTE = [
 
 export const MAX_SETS = 100;
 
+export const DEFAULT_REST = 120;
+export const MIN_REST = 15;
+export const MAX_REST = 900;
+export const REST_STEP = 15;
+
+export const parseRest = (value) => {
+  const n = typeof value === 'string' && /^\s*\d+\s*$/.test(value) ? Number(value) : value;
+  return Number.isInteger(n) && n >= MIN_REST && n <= MAX_REST ? n : null;
+};
+
+export const restOf = (exercise) => exercise.rest ?? DEFAULT_REST;
+
+export const stepRest = (rest, direction) =>
+  Math.min(MAX_REST, Math.max(MIN_REST, rest + direction * REST_STEP));
+
 export const parseSets = (value) => {
   const n = Number(value);
   return value !== '' && Number.isInteger(n) && n >= 1 && n <= MAX_SETS ? n : null;

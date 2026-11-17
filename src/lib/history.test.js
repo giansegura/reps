@@ -55,6 +55,20 @@ describe('renderHistory · planes', () => {
   });
 });
 
+describe('renderHistory · superseries', () => {
+  it('dice con qué ejercicio va cada uno', () => {
+    const paired = {
+      ...plans,
+      plans: plans.plans.map(p => ({
+        ...p,
+        days: p.days.map(d => ({ ...d, exercises: d.exercises.map(ex => ({ ...ex, superset: 'A' })) })),
+      })),
+    };
+    const text = renderHistory(paired, [session()], now);
+    expect(text).toContain('- Empuje: Press banca (4×8, superserie con Fondos), Fondos (3×máx, superserie con Press banca)\n');
+  });
+});
+
 describe('renderHistory · entrenos', () => {
   it('cabecera con fecha local, día de la semana, hora, plan y día', () => {
     const text = renderHistory(plans, [session()], now);
@@ -133,7 +147,23 @@ describe('renderHistory · orden y datos huérfanos', () => {
 
   it('indica cuando el día ya no existe en el plan', () => {
     const text = renderHistory(plans, [session({ dayId: 'nope' })], now);
-    expect(text).toContain('· Fuerza › Día eliminado\n- Ejercicio eliminado (bench): 70 kg × 8, 72.5 kg × 6\n');
+    expect(text).toContain('· Fuerza › Día eliminado\n- Press banca: 70 kg × 8, 72.5 kg × 6\n');
+  });
+
+  it('un ejercicio movido a otro día conserva su nombre en los entrenos antiguos', () => {
+    const moved = {
+      ...plans,
+      plans: plans.plans.map(p => ({
+        ...p,
+        days: [
+          ...p.days.map(d => ({ ...d, exercises: d.exercises.filter(ex => ex.id !== 'bench') })),
+          { id: 'otro', label: 'Otro día', color: '#000000', exercises: [{ id: 'bench', name: 'Press banca', sets: 4, reps: '8' }] },
+        ],
+      })),
+    };
+    const text = renderHistory(moved, [session()], now);
+    expect(text).toContain('- Press banca: 70 kg × 8, 72.5 kg × 6\n');
+    expect(text).not.toContain('Ejercicio eliminado (bench)');
   });
 
   it('indica cuando el plan ya no existe', () => {

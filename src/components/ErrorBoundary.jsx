@@ -17,13 +17,13 @@ export class ErrorBoundary extends Component {
     return (
       <div className="app">
         <div className="crash">
-          <h1 className="title">Algo ha fallado</h1>
+          <h1 className="page-title">Algo ha fallado</h1>
           <p className="data-text">
             Tus datos siguen en este dispositivo. Descárgalos antes de nada por si hay que recuperarlos.
           </p>
           <div className="data-actions">
-            <button className="ghost-btn" onClick={downloadRawData}>Descargar datos</button>
-            <button className="ghost-btn" onClick={() => location.reload()}>Recargar</button>
+            <button className="btn small" onClick={downloadRawData}>Descargar datos</button>
+            <button className="btn small" onClick={() => location.reload()}>Recargar</button>
           </div>
         </div>
       </div>

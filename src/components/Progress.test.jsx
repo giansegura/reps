@@ -36,7 +36,6 @@ const renderProgress = (props = {}) => render(
     metric="volume"
     onPeriodChange={vi.fn()}
     onMetricChange={vi.fn()}
-    onBack={vi.fn()}
     {...props}
   />,
 );
@@ -59,14 +58,7 @@ describe('Progress', () => {
   it('sin ejercicios en el plan lo dice en vez de romperse', () => {
     renderProgress({ plan: { ...plan, days: [plan.days[0]] } });
     expect(screen.getByText('Este plan aún no tiene ejercicios')).toBeTruthy();
-    expect(screen.getByRole('button', { name: '← Inicio' })).toBeTruthy();
-  });
-
-  it('← Inicio llama a onBack', async () => {
-    const user = userEvent.setup();
-    const onBack = vi.fn();
-    renderProgress({ onBack });
-    await user.click(screen.getByRole('button', { name: '← Inicio' }));
-    expect(onBack).toHaveBeenCalled();
+    expect(screen.getByRole('heading', { level: 1, name: 'Progreso' })).toBeTruthy();
+    expect(screen.queryByRole('combobox')).toBeNull();
   });
 });

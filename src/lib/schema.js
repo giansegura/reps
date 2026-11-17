@@ -1,4 +1,4 @@
-import { MAX_SETS } from './plan.js';
+import { MAX_SETS, parseRest } from './plan.js';
 import { isValidPlansState } from './plans.js';
 
 export const isObject = (value) => !!value && typeof value === 'object' && !Array.isArray(value);
@@ -9,13 +9,17 @@ const isOptionalString = (value) => value === undefined || isString(value);
 
 const isValidSets = (sets) => Number.isInteger(sets) && sets >= 1 && sets <= MAX_SETS;
 
+const isOptionalRest = (rest) => rest === undefined || parseRest(rest) === rest;
+
 const isValidExercise = (ex) =>
   isObject(ex)
   && isString(ex.id)
   && isString(ex.name)
   && isString(ex.reps)
   && isValidSets(ex.sets)
-  && isOptionalString(ex.notes);
+  && isOptionalString(ex.notes)
+  && isOptionalRest(ex.rest)
+  && isOptionalString(ex.superset);
 
 const isValidDay = (day) =>
   isObject(day)

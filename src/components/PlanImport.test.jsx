@@ -15,6 +15,10 @@ const renderImport = (diff, handlers = {}) => render(
   <PlanImport planName="Full Body" diff={diff} onApply={handlers.onApply ?? vi.fn()} onCancel={handlers.onCancel ?? vi.fn()} />,
 );
 
+const item = (name) => screen.getByText(name, { selector: '.import-item-name' }).nextElementSibling.textContent;
+
+const dayOf = (label) => screen.getByRole('heading', { level: 2, name: label }).closest('section');
+
 describe('PlanImport', () => {
   it('muestra el título y el plan', () => {
     renderImport(baseDiff());
@@ -31,9 +35,10 @@ describe('PlanImport', () => {
       })],
     }));
     expect(screen.getByRole('heading', { level: 2, name: 'Torso' })).toBeTruthy();
-    expect(screen.getByText('+ Remo · 3×10')).toBeTruthy();
-    expect(screen.getByText('− Press banca · sus entrenos se conservan')).toBeTruthy();
-    expect(screen.getByText('Sentadilla: antes «Squat», 3×8 → 4×6')).toBeTruthy();
+    expect(item('Remo')).toBe('Ejercicio nuevo · 3×10');
+    expect(item('Press banca')).toBe('Se quita · sus entrenos se conservan');
+    expect(item('Sentadilla')).toBe('Antes «Squat» · 3×8 → 4×6');
+    expect(screen.getByText('1 ejercicio nuevo · 1 ejercicio quitado · 1 con cambios')).toBeTruthy();
   });
 
   it('muestra días nuevos, quitados y renombrados', () => {
@@ -44,11 +49,12 @@ describe('PlanImport', () => {
         entry('d2', 'Pierna', { status: 'removed', removed: [ex('e3', 'Zancadas')] }),
       ],
     }));
-    expect(screen.getByRole('heading', { level: 2, name: 'Torso (antes «Tren superior»)' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 2, name: 'Día nuevo: Pierna B' })).toBeTruthy();
-    expect(screen.getByRole('heading', { level: 2, name: 'Día quitado: Pierna' })).toBeTruthy();
+    expect(dayOf('Torso').textContent).toContain('Antes «Tren superior»');
+    expect(dayOf('Pierna B').textContent).toContain('Día nuevo');
+    expect(dayOf('Pierna').textContent).toContain('Día quitado');
     expect(screen.getByText('Sus entrenos se conservan pero dejarán de mostrarse')).toBeTruthy();
-    expect(screen.getByText('− Zancadas · sus entrenos se conservan')).toBeTruthy();
+    expect(item('Zancadas')).toBe('Se quita · sus entrenos se conservan');
+    expect(screen.getByText('1 día nuevo · 1 día quitado · 1 ejercicio nuevo · 1 ejercicio quitado')).toBeTruthy();
   });
 
   it('movido, peso corporal y notas', () => {
@@ -62,7 +68,20 @@ describe('PlanImport', () => {
         }],
       })],
     }));
-    expect(screen.getByText('Dominadas: peso corporal no → sí, notas cambiadas, movido desde Torso')).toBeTruthy();
+    expect(item('Dominadas')).toBe('Peso corporal no → sí · notas cambiadas · movido desde Torso');
+  });
+
+  it('descanso y superserie', () => {
+    renderImport(baseDiff({
+      days: [entry('d1', 'Torso', {
+        changed: [
+          { exercise: ex('e1', 'Curl', 3, '8', { rest: 60 }), before: ex('e1', 'Curl'), fields: ['rest', 'superset'], movedFrom: null, supersetWith: ['Tríceps'] },
+          { exercise: ex('e2', 'Remo'), before: ex('e2', 'Remo', 3, '8', { rest: 90 }), fields: ['rest', 'superset'], movedFrom: null, supersetWith: [] },
+        ],
+      })],
+    }));
+    expect(item('Curl')).toBe('Descanso 2:00 → 1:00 · en superserie con Tríceps');
+    expect(item('Remo')).toBe('Descanso 1:30 → 2:00 · ya no va en superserie');
   });
 
   it('nombra los días sin nombre', () => {
@@ -72,8 +91,8 @@ describe('PlanImport', () => {
         entry('d2', 'Pierna', { changed: [{ exercise: ex('e1', 'Remo'), before: ex('e1', 'Remo'), fields: [], movedFrom: '' }] }),
       ],
     }));
-    expect(screen.getByRole('heading', { level: 2, name: 'Torso (antes «sin nombre»)' })).toBeTruthy();
-    expect(screen.getByText('Remo: movido desde «sin nombre»')).toBeTruthy();
+    expect(dayOf('Torso').textContent).toContain('Antes «sin nombre»');
+    expect(item('Remo')).toBe('Movido desde «sin nombre»');
   });
 
   it('abre arriba del todo', () => {
@@ -116,7 +135,7 @@ describe('PlanImport', () => {
     await user.click(screen.getByRole('button', { name: 'Aplicar cambios' }));
     expect(onApply).toHaveBeenCalledOnce();
     await user.click(screen.getByRole('button', { name: 'Cancelar' }));
-    await user.click(screen.getByRole('button', { name: '← Volver' }));
+    await user.click(screen.getByRole('button', { name: 'Volver' }));
     expect(onCancel).toHaveBeenCalledTimes(2);
   });
 
@@ -126,7 +145,7 @@ describe('PlanImport', () => {
     renderImport(baseDiff({ hasChanges: false, unchanged: 3 }), { onCancel });
     expect(screen.getByText('El archivo no trae cambios')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Aplicar cambios' })).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Volver' }));
+    await user.click(screen.getByRole('button', { name: 'Entendido' }));
     expect(onCancel).toHaveBeenCalledOnce();
   });
 });

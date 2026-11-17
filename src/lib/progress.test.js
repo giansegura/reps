@@ -6,6 +6,7 @@ import {
   periodAriaLabel,
   periodLabel,
   progressSeries,
+  recentSessions,
 } from './progress.js';
 
 const now = new Date(2026, 9, 21, 12);
@@ -171,5 +172,26 @@ describe('formateadores', () => {
   it('periodAriaLabel', () => {
     expect(periodAriaLabel(new Date(2026, 9, 5), 'week')).toBe('Semana del 5 oct');
     expect(periodAriaLabel(new Date(2026, 9, 1), 'month')).toBe('octubre de 2026');
+  });
+});
+
+describe('recentSessions', () => {
+  const log = [
+    session(new Date(2026, 9, 5, 10), [set('50', '8'), set('50', '7', false)]),
+    session(new Date(2026, 9, 19, 10), [set('60', '8')]),
+    session(new Date(2026, 9, 12, 10), [set('55', '8')]),
+    session(new Date(2026, 9, 20, 10), [set('99', '8')], { planId: 'p2' }),
+    session(new Date(2026, 9, 20, 11), [set('60', '8', false)]),
+  ];
+
+  it('devuelve las últimas del plan, la más reciente primero, solo con series hechas', () => {
+    const recent = recentSessions(log, 'p1', 'e1');
+    expect(recent.map(r => r.sets[0].weight)).toEqual(['60', '55', '50']);
+    expect(recent[2].sets).toHaveLength(1);
+  });
+
+  it('respeta el límite', () => {
+    expect(recentSessions(log, 'p1', 'e1', 2)).toHaveLength(2);
+    expect(recentSessions(log, 'p1', 'zz')).toEqual([]);
   });
 });

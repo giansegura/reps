@@ -99,6 +99,19 @@ describe('ProgressChart', () => {
     expect(screen.getByRole('group', { name: 'Periodo' })).toBeTruthy();
   });
 
+  it('lista las últimas sesiones, la más reciente primero', () => {
+    renderChart();
+    const rows = [...screen.getByRole('heading', { level: 3, name: 'Últimas sesiones' }).parentElement.querySelectorAll('.recent-row')];
+    expect(rows.map(row => row.textContent)).toEqual(['lun 19 oct60 kg × 8', 'jue 15 oct50 kg × 8', 'mar 13 oct50 kg × 8']);
+  });
+
+  it('cada barra lleva su valor a la vista', () => {
+    renderChart();
+    const items = bars();
+    expect(items[7].querySelector('.progress-bar-value').textContent).toBe('480');
+    expect(items[5].querySelector('.progress-bar-value').textContent).toBe('');
+  });
+
   it('en repeticiones el segundo botón es Mejor serie', () => {
     renderChart({ sessions: [session(new Date(2026, 9, 19, 10), 'PC', '10')] });
     expect(screen.getByRole('button', { name: 'Mejor serie' })).toBeTruthy();
