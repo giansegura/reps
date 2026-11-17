@@ -17,7 +17,7 @@ import { historyFileName, renderHistory } from './lib/history.js';
 import { createPlanFile, planFileName, readPlanFile } from './lib/planFile.js';
 import { diffPlans, reconcilePlan, resolveImportTarget } from './lib/planImport.js';
 import { shareOrDownload } from './lib/share.js';
-import { linkSuperset, unlinkSuperset } from './lib/superset.js';
+import { linkSuperset, moveExercise, unlinkSuperset } from './lib/superset.js';
 import {
   createDay,
   addDay,
@@ -27,7 +27,6 @@ import {
   createExercise,
   addExercise,
   updateExercise,
-  moveExercise,
 } from './lib/plan.js';
 import {
   createPlan,
@@ -358,12 +357,13 @@ export default function App() {
       let activeState = data.plans ?? DEFAULT_PLANS;
       const wip = loadWIP();
       const wipPlan = wip && findPlanByDay(activeState, wip.dayId);
-      const wipDay = wipPlan?.days.find(d => d.id === wip.dayId);
+      const wipDay = wipPlan?.days.find(d => d.id === wip.dayId && d.exercises.length > 0);
       const resume = !!wipDay && await ask({
         title: 'Tienes un entreno sin terminar',
         text: `${wipPlan.name} · ${wipDay.label}`,
         confirmLabel: 'Retomar',
         cancelLabel: 'Descartar',
+        dismissible: false,
       });
       if (resume) {
         if (wipPlan.id !== activeState.activePlanId) {
@@ -585,7 +585,7 @@ export default function App() {
             onUpdateDay={(patch) => commitDays(updateDay(editingDays, editingDayId, patch))}
             onAddExercise={addPlanExercise}
             onOpenExercise={openPlanExercise}
-            onMoveExercise={(exId, delta) => commitDays(moveExercise(editingDays, editingDayId, exId, delta))}
+            onMoveExercise={(exId, delta) => commitExercises(exercises => moveExercise(exercises, exId, delta))}
             onRemoveDay={removePlanDay}
           />
         )}

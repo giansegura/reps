@@ -257,6 +257,16 @@ describe('Workout · superserie', () => {
     expect(onToggleDone.mock.calls).toEqual([['e2', 1, null], ['e3', 1, 60]]);
   });
 
+  it('marcando la ronda al revés descansa al acabarla, no antes', async () => {
+    const user = userEvent.setup();
+    const onToggleDone = vi.fn();
+    render(<Live activeDay={pair} initial={startAtPair} onToggleDone={onToggleDone} />);
+    await user.click(check(1, 'Abdominales'));
+    await user.click(check(1, 'Gemelo'));
+    expect(onToggleDone.mock.calls).toEqual([['e3', 1, null], ['e2', 1, 60]]);
+    expect(nextUp()).toBe('Marcar serie 2 de Gemelo');
+  });
+
   it('cuando se acaba lo dice y, si no queda nada más, ofrece terminar', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={pair} initial={startAtPair} />);
@@ -339,6 +349,18 @@ describe('Workout · terminar', () => {
       exercises: { e1: { 1: { weight: '57.5', reps: '8', done: true } } },
       notes: {},
     }];
+    const initial = { e1: { 1: { weight: '60', reps: '8', done: true } } };
+    render(<Live activeDay={day} initial={initial} sessions={sessions} />);
+    await user.click(screen.getByRole('button', { name: 'Terminar' }));
+    expect(screen.getByText('+2,5 kg')).toBeTruthy();
+  });
+
+  it('compara con la última vez que lo hiciste aunque luego te lo saltaras', async () => {
+    const user = userEvent.setup();
+    const sessions = [
+      { planId: 'p1', dayId: 'd1', date: '2026-10-01T10:00:00.000Z', exercises: { e1: { 1: { weight: '57.5', reps: '8', done: true } } }, notes: {} },
+      { planId: 'p1', dayId: 'd1', date: '2026-10-08T10:00:00.000Z', exercises: { e1: { 1: { weight: '57.5', reps: '8', done: false } } }, notes: {} },
+    ];
     const initial = { e1: { 1: { weight: '60', reps: '8', done: true } } };
     render(<Live activeDay={day} initial={initial} sessions={sessions} />);
     await user.click(screen.getByRole('button', { name: 'Terminar' }));

@@ -201,6 +201,33 @@ describe('App · tiempo total del entreno', () => {
     expect(total.textContent).toMatch(/^1:01:0\d$/);
   });
 
+  it('tocar fuera o pulsar Escape no descarta el entreno sin terminar', async () => {
+    localStorage.setItem('reps-wip', JSON.stringify({
+      planId: 'plan1', dayId: 'day1', workout: {}, notes: {}, startedAt: Date.now(),
+    }));
+    render(<App />);
+    const user = userEvent.setup();
+    const dialog = await screen.findByRole('alertdialog', { name: 'Tienes un entreno sin terminar' });
+    await user.keyboard('{Escape}');
+    await user.click(dialog.parentElement);
+    expect(screen.getByRole('alertdialog', { name: 'Tienes un entreno sin terminar' })).toBeTruthy();
+    expect(localStorage.getItem('reps-wip')).toBeTruthy();
+  });
+
+  it('no ofrece retomar un entreno de un día que se ha quedado sin ejercicios', async () => {
+    const plans = structuredClone(DEFAULT_PLANS);
+    plans.plans[0].days[0].exercises = [];
+    localStorage.setItem('reps-version', '2');
+    localStorage.setItem('reps-plans', JSON.stringify(plans));
+    localStorage.setItem('reps-wip', JSON.stringify({
+      planId: 'plan1', dayId: 'day1', workout: {}, notes: {}, startedAt: Date.now(),
+    }));
+    render(<App />);
+    expect(await screen.findByRole('button', { name: 'Empezar entreno' })).toBeTruthy();
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+    expect(localStorage.getItem('reps-wip')).toBeNull();
+  });
+
   it('descartar el entreno sin terminar lo borra y abre el inicio', async () => {
     localStorage.setItem('reps-wip', JSON.stringify({
       planId: 'plan1', dayId: 'day1', workout: {}, notes: {}, startedAt: Date.now(),

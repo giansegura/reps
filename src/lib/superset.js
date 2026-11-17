@@ -32,11 +32,11 @@ export const groupSteps = (group) => {
     .flatMap(set => group.exercises.filter(e => e.sets >= set).map(exercise => ({ exercise, set })));
 };
 
-export const restAfterStep = (group, step) => {
-  const steps = groupSteps(group);
-  const index = steps.findIndex(s => s.exercise.id === step.exercise.id && s.set === step.set);
-  const next = steps[index + 1];
-  return group.superset && next?.set === step.set ? null : restOf(step.exercise);
+export const restAfterStep = (group, step, workout) => {
+  if (!group.superset) return restOf(step.exercise);
+  const round = group.exercises.filter(e => e.sets >= step.set);
+  const done = (e) => e.id === step.exercise.id || !!workout?.[e.id]?.[step.set]?.done;
+  return round.every(done) ? restOf(round.at(-1)) : null;
 };
 
 const freeLabel = (exercises) => {
@@ -58,6 +58,38 @@ export const unlinkSuperset = (exercises, exerciseId) => {
     .filter(e => e.id !== exerciseId)
     .map(e => (e.id === alone ? withoutSuperset(e) : e));
   return insertAfter(rest, rest.findIndex(e => e.id === remaining.at(-1).id), target);
+};
+
+const withoutLoneLabels = (exercises) => groupExercises(exercises)
+  .flatMap(group => (group.superset ? group.exercises : group.exercises.map(withoutSuperset)));
+
+const swap = (list, a, b) => {
+  const next = [...list];
+  [next[a], next[b]] = [next[b], next[a]];
+  return next;
+};
+
+const keepApart = (groups) => groups.reduce((placed, list) => {
+  const prev = placed.at(-1);
+  const clash = !!prev && prev.length > 1 && list.length > 1 && labelOf(prev[0]) === labelOf(list[0]);
+  if (!clash) return [...placed, list];
+  const label = freeLabel([...placed.flat(), ...groups.flat()]);
+  return [...placed, list.map(e => ({ ...e, superset: label }))];
+}, []);
+
+export const moveExercise = (exercises, exerciseId, delta) => {
+  const groups = groupExercises(withoutLoneLabels(exercises)).map(group => group.exercises);
+  const g = groups.findIndex(list => list.some(e => e.id === exerciseId));
+  if (g === -1) return exercises;
+  const i = groups[g].findIndex(e => e.id === exerciseId);
+  if (groups[g].length > 1 && i + delta >= 0 && i + delta < groups[g].length) {
+    groups[g] = swap(groups[g], i, i + delta);
+  } else if (g + delta >= 0 && g + delta < groups.length) {
+    [groups[g], groups[g + delta]] = [groups[g + delta], groups[g]];
+  } else {
+    return exercises;
+  }
+  return keepApart(groups).flat();
 };
 
 export const linkSuperset = (exercises, exerciseId, partnerId) => {

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupExercises, groupSteps, linkSuperset, restAfterStep, supersetPartners, unlinkSuperset } from './superset.js';
+import { groupExercises, groupSteps, linkSuperset, moveExercise, restAfterStep, supersetPartners, unlinkSuperset } from './superset.js';
 
 const ex = (id, extra = {}) => ({ id, name: id, sets: 3, reps: '10', ...extra });
 
@@ -57,19 +57,70 @@ describe('restAfterStep', () => {
   const a = ex('a', { rest: 60 });
   const b = ex('b', { rest: 90 });
   const pair = { superset: true, exercises: [a, b] };
+  const done = (...steps) => steps.reduce((workout, [id, set]) => ({
+    ...workout,
+    [id]: { ...workout[id], [set]: { done: true } },
+  }), {});
 
   it('dentro de la ronda no hay descanso', () => {
-    expect(restAfterStep(pair, { exercise: a, set: 1 })).toBeNull();
+    expect(restAfterStep(pair, { exercise: a, set: 1 }, {})).toBeNull();
   });
 
   it('al acabar la ronda se descansa lo que marca el último ejercicio', () => {
-    expect(restAfterStep(pair, { exercise: b, set: 1 })).toBe(90);
-    expect(restAfterStep(pair, { exercise: b, set: 3 })).toBe(90);
+    expect(restAfterStep(pair, { exercise: b, set: 1 }, done(['a', 1]))).toBe(90);
+    expect(restAfterStep(pair, { exercise: b, set: 3 }, done(['a', 3]))).toBe(90);
+  });
+
+  it('marcando la ronda al revés, descansa al acabarla y no antes', () => {
+    expect(restAfterStep(pair, { exercise: b, set: 1 }, {})).toBeNull();
+    expect(restAfterStep(pair, { exercise: a, set: 1 }, done(['b', 1]))).toBe(90);
+  });
+
+  it('en una ronda que solo tiene un ejercicio descansa al hacerlo', () => {
+    const uneven = { superset: true, exercises: [a, ex('b', { sets: 2, rest: 90 })] };
+    expect(restAfterStep(uneven, { exercise: a, set: 3 }, {})).toBe(60);
   });
 
   it('un ejercicio solo descansa siempre, 120 s si no dice otra cosa', () => {
     expect(restAfterStep({ superset: false, exercises: [a] }, { exercise: a, set: 1 })).toBe(60);
     expect(restAfterStep({ superset: false, exercises: [ex('c')] }, { exercise: ex('c'), set: 1 })).toBe(120);
+  });
+});
+
+describe('moveExercise', () => {
+  const day = () => [ex('a', { superset: 'A' }), ex('b', { superset: 'A' }), ex('c')];
+
+  it('dentro de una superserie cambia el orden de la pareja', () => {
+    expect(shape(moveExercise(day(), 'b', -1))).toEqual(['b+a', 'c']);
+  });
+
+  it('un ejercicio suelto salta la superserie entera en vez de partirla', () => {
+    expect(shape(moveExercise(day(), 'c', -1))).toEqual(['c', 'a+b']);
+  });
+
+  it('desde el borde de la superserie mueve la pareja entera', () => {
+    expect(shape(moveExercise(day(), 'b', 1))).toEqual(['c', 'a+b']);
+  });
+
+  it('quita las etiquetas que ya no tienen pareja para que no vuelvan a juntarse solas', () => {
+    const broken = [ex('a', { superset: 'A' }), ex('c'), ex('b', { superset: 'A' })];
+    const moved = moveExercise(broken, 'c', 1);
+    expect(shape(moved)).toEqual(['a', 'b', 'c']);
+    expect(moved.some(e => 'superset' in e)).toBe(false);
+  });
+
+  it('no junta dos superseries que comparten etiqueta', () => {
+    const list = [...day(), ex('d', { superset: 'A' }), ex('e', { superset: 'A' })];
+    const moved = moveExercise(list, 'c', 1);
+    expect(shape(moved)).toEqual(['a+b', 'd+e', 'c']);
+    expect(moved.find(e => e.id === 'd').superset).not.toBe('A');
+  });
+
+  it('no hace nada fuera de los límites o con un ejercicio que no existe', () => {
+    const list = day();
+    expect(moveExercise(list, 'a', -1)).toBe(list);
+    expect(moveExercise(list, 'c', 1)).toBe(list);
+    expect(moveExercise(list, 'zz', 1)).toBe(list);
   });
 });
 
