@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Icon } from './Icon.jsx';
 import { Sheet } from './Sheet.jsx';
 
-export function ExerciseNoteEditor({ exercise, value, opener, fallback, onSave, onClose }) {
+export function ExerciseNoteEditor({ exercise, value, opener, onSave, onClose }) {
   const [text, setText] = useState(value);
 
   const save = () => {
@@ -18,7 +18,7 @@ export function ExerciseNoteEditor({ exercise, value, opener, fallback, onSave, 
   };
 
   return (
-    <Sheet label={`Nota · ${exercise.name}`} opener={opener} fallback={fallback} onClose={onClose}>
+    <Sheet label={`Nota · ${exercise.name}`} opener={opener} onClose={onClose}>
       <div className="sheet-head">
         <div className="sheet-heading">
           <span className="kicker">Nota de hoy</span>
@@ -39,7 +39,7 @@ export function ExerciseNoteEditor({ exercise, value, opener, fallback, onSave, 
         onChange={() => {}}
         onKeyDown={onTextKeyDown}
       />
-      <p className="sheet-hint">Se guarda con el entreno y la tendrás delante la próxima vez que hagas este ejercicio.</p>
+      <p className="sheet-hint">Se guarda con el entreno y la encontrarás aquí la próxima vez que hagas este ejercicio.</p>
       <div className="sheet-actions">
         <button className="btn" onClick={onClose}>Cancelar</button>
         <button className="btn primary" onClick={save}>Guardar nota</button>

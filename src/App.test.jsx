@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import App from './App.jsx';
@@ -32,6 +32,13 @@ const startDay = async (user, label) => {
 const openSummary = async (user) => {
   await user.click(screen.getByRole('button', { name: 'Terminar' }));
 };
+
+const markSet = (user, set, exercise = 'Sentadilla') =>
+  user.click(screen.getByRole('button', { name: `Marcar serie ${set} de ${exercise}` }));
+
+const nextUp = () => screen.getByRole('button', { current: 'step' }).getAttribute('aria-label');
+
+const markNext = (user) => user.click(screen.getByRole('button', { current: 'step' }));
 
 beforeEach(() => {
   localStorage.clear();
@@ -152,7 +159,7 @@ describe('App · versiones', () => {
     const user = userEvent.setup();
     render(<App />);
     await startFirstDay(user);
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
+    await markNext(user);
     await openSummary(user);
     await user.click(screen.getByRole('button', { name: /^Guardar entreno/ }));
     expect(await screen.findByText(/No se pudo guardar el entreno/)).toBeTruthy();
@@ -176,7 +183,7 @@ describe('App · tiempo total del entreno', () => {
     await startFirstDay(user);
     const { startedAt } = storedWip();
     expect(startedAt).toBeGreaterThanOrEqual(before);
-    await user.type(screen.getByRole('spinbutton', { name: /peso/ }), '60');
+    await user.type(screen.getByRole('spinbutton', { name: /^Sentadilla, serie 1, peso/ }), '60');
     expect(storedWip().startedAt).toBe(startedAt);
   });
 
@@ -215,6 +222,7 @@ describe('App · descanso automático', () => {
   });
 
   const rest = () => screen.getByRole('timer', { name: 'Descanso' }).textContent;
+  const over = () => screen.queryByText('Descanso cumplido');
   const wait = (ms) => act(() => vi.advanceTimersByTime(ms));
   const firstSet = (name) => screen.getByRole('spinbutton', { name: new RegExp(`^Sentadilla, serie 1, ${name}`) });
 
@@ -235,7 +243,7 @@ describe('App · descanso automático', () => {
   it('arranca al marcar una serie como hecha', async () => {
     const user = userEvent.setup();
     await startDay1(user);
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
+    await markSet(user, 1);
     wait(4000);
     expect(rest()).toBe('00:04');
   });
@@ -246,12 +254,11 @@ describe('App · descanso automático', () => {
     const user = userEvent.setup();
     render(<App />);
     await startDay(user, 'Día 1');
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
+    await markSet(user, 1);
     wait(3000);
     expect(rest()).toBe('00:03');
-    await user.click(screen.getByRole('button', { name: 'Corregir serie 1 de Sentadilla' }));
     await user.type(firstSet('repeticiones'), '0');
-    await user.click(screen.getByRole('button', { name: 'Desmarcar serie' }));
+    await markSet(user, 1);
     wait(2000);
     expect(rest()).toBe('00:05');
   });
@@ -263,20 +270,25 @@ describe('App · descanso automático', () => {
     localStorage.setItem('reps-plans', JSON.stringify(plans));
     const user = userEvent.setup();
     await startDay1(user);
-    expect(screen.getByText('aviso 1:00')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
+    await markSet(user, 1);
+    wait(59_000);
+    expect(over()).toBeNull();
+    wait(1000);
+    expect(over()).toBeTruthy();
+    await markSet(user, 2);
+    await markSet(user, 3);
     expect(screen.getByRole('heading', { level: 1, name: 'Press de banca' })).toBeTruthy();
-    expect(screen.getByText('aviso 1:00')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
-    expect(screen.getByText('aviso 2:00')).toBeTruthy();
+    await markSet(user, 1, 'Press de banca');
+    wait(61_000);
+    expect(over()).toBeNull();
+    wait(59_000);
+    expect(over()).toBeTruthy();
   });
 });
 
 describe('App · series precargadas del último entreno', () => {
   const field = (name) => screen.getByRole('spinbutton', { name: new RegExp(`^Sentadilla, serie 1, ${name}`) });
-  const doneCount = () => screen.getByRole('button', { name: /series hechas\. Ver todos los ejercicios$/ }).getAttribute('aria-label');
+  const doneCount = () => screen.getByText(/series hechas$/).textContent;
 
   const startDay1WithHistory = async (user, session = daySession('2026-10-01T10:00:00.000Z', '60')) => {
     localStorage.setItem('reps-version', '2');
@@ -290,7 +302,7 @@ describe('App · series precargadas del último entreno', () => {
     await startDay1WithHistory(user);
     expect(field('peso').value).toBe('60');
     expect(field('repeticiones').value).toBe('8');
-    expect(screen.getByText('Última vez 60 kg × 8')).toBeTruthy();
+    expect(nextUp()).toBe('Marcar serie 1 de Sentadilla');
     expect(doneCount()).toMatch(/^0 de 15 /);
     await openSummary(user);
     expect(screen.getByRole('button', { name: 'Guardar entreno, 0 de 15 series' }).disabled).toBe(true);
@@ -334,8 +346,9 @@ describe('App · progreso en el entreno', () => {
     await startFirstDay(user);
     const weight = () => screen.getByRole('spinbutton', { name: /^Sentadilla, serie 1, peso/ });
     await user.type(weight(), '60');
-    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
-    expect(screen.getByRole('dialog', { name: 'Sentadilla' })).toBeTruthy();
+    await user.click(screen.getByRole('button', { name: 'Notas y progreso de Sentadilla' }));
+    await user.click(screen.getByRole('button', { name: 'Ver progreso' }));
+    expect(within(screen.getByRole('dialog', { name: 'Sentadilla' })).getByRole('group', { name: 'Periodo' })).toBeTruthy();
     await user.click(screen.getByRole('button', { name: 'Cerrar' }));
     expect(weight().value).toBe('60');
     expect(screen.getByRole('button', { name: 'Salir sin guardar' })).toBeTruthy();
@@ -413,7 +426,7 @@ describe('App · otra versión más nueva actualiza los datos durante la sesión
     const user = userEvent.setup();
     render(<App />);
     await startFirstDay(user);
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
+    await markSet(user, 1);
     localStorage.setItem('reps-version', '3');
     await openSummary(user);
     await user.click(screen.getByRole('button', { name: /^Guardar entreno/ }));
@@ -685,12 +698,13 @@ describe('App · editar ejercicio', () => {
     const user = userEvent.setup();
     render(<App />);
     await startFirstDay(user);
-    expect(screen.getByRole('heading', { level: 1, name: 'Sentadilla' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Press de banca' })).toBeTruthy();
-    expect(screen.getByText('sin descanso')).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Serie hecha' }));
-    expect(screen.getByRole('heading', { level: 1, name: 'Sentadilla' })).toBeTruthy();
-    expect(screen.getByText('aviso 2:00')).toBeTruthy();
+    expect(screen.getByRole('heading', { level: 1, name: 'Superserie · ronda 1 de 3' })).toBeTruthy();
+    expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Sentadilla', 'Press de banca']);
+    expect(nextUp()).toBe('Marcar serie 1 de Sentadilla');
+    await markSet(user, 1);
+    expect(nextUp()).toBe('Marcar serie 1 de Press de banca');
+    await markSet(user, 1, 'Press de banca');
+    expect(nextUp()).toBe('Marcar serie 2 de Sentadilla');
+    expect(screen.getByRole('heading', { level: 1, name: 'Superserie · ronda 2 de 3' })).toBeTruthy();
   });
 });

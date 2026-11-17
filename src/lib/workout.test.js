@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { countDone, formatElapsed, nextGroupIndex, pendingStep, stepReps, stepWeight } from './workout.js';
+import { countDone, formatElapsed, nextGroupIndex, pendingStep, positionText } from './workout.js';
 
 const ex = (id, sets = 2) => ({ id, name: id, sets, reps: '8' });
 
@@ -9,34 +9,6 @@ describe('formatElapsed', () => {
   it.each([[0, '00:00'], [65, '01:05'], [3661, '1:01:01']])('%i s → %s', (seconds, text) => {
     expect(formatElapsed(seconds)).toBe(text);
   });
-});
-
-describe('stepWeight', () => {
-  it.each([
-    ['', 1, '1'],
-    ['4', 1, '5'],
-    ['19', 1, '20'],
-    ['20', 1, '22.5'],
-    ['60', 1, '62.5'],
-    ['62,5', 1, '65'],
-    ['62.5', -1, '60'],
-    ['22.5', -1, '20'],
-    ['20', -1, '19'],
-    ['1', -1, ''],
-    ['', -1, ''],
-    ['PC', 1, '1'],
-  ])('%s con %i → %s', (value, direction, expected) => {
-    expect(stepWeight(value, direction)).toBe(expected);
-  });
-});
-
-describe('stepReps', () => {
-  it.each([['', 1, '1'], ['7', 1, '8'], ['7', -1, '6'], ['1', -1, ''], ['', -1, ''], ['5-7', 1, '6']])(
-    '%s con %i → %s',
-    (value, direction, expected) => {
-      expect(stepReps(value, direction)).toBe(expected);
-    },
-  );
 });
 
 describe('countDone', () => {
@@ -81,5 +53,25 @@ describe('nextGroupIndex', () => {
 
   it('no hay siguiente cuando todo está hecho', () => {
     expect(nextGroupIndex(groups, { a: done(1, 2), b: done(1, 2), c: done(1, 2) }, 0)).toBeNull();
+  });
+});
+
+describe('positionText', () => {
+  const groups = [
+    { superset: false, exercises: [ex('a')] },
+    { superset: true, exercises: [ex('b'), ex('c')] },
+    { superset: true, exercises: [ex('d'), ex('e'), ex('f')] },
+  ];
+
+  it('un ejercicio solo dice su número', () => {
+    expect(positionText(groups, 0)).toBe('1 de 6');
+  });
+
+  it('una pareja dice los dos', () => {
+    expect(positionText(groups, 1)).toBe('2 y 3 de 6');
+  });
+
+  it('un grupo de tres o más dice del primero al último', () => {
+    expect(positionText(groups, 2)).toBe('4 a 6 de 6');
   });
 });

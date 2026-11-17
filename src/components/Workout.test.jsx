@@ -63,7 +63,11 @@ const Live = ({ activeDay, initial, onToggleDone = () => {}, ...props }) => {
 
 const title = () => screen.getByRole('heading', { level: 1 }).textContent;
 
-const done = () => screen.getByRole('button', { name: 'Serie hecha' });
+const check = (set, name = 'Sentadilla') => screen.getByRole('button', { name: `Marcar serie ${set} de ${name}` });
+
+const nextUp = () => screen.getByRole('button', { current: 'step' }).getAttribute('aria-label');
+
+const more = (name = 'Sentadilla') => screen.getByRole('button', { name: new RegExp(`^Notas y progreso de ${name}`) });
 
 beforeEach(() => {
   vi.spyOn(window, 'scrollTo').mockImplementation(() => {});
@@ -73,162 +77,147 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe('Workout · una serie cada vez', () => {
+describe('Workout · un ejercicio con su tabla', () => {
   const twoExercises = dayOf(ex('e1', 'Sentadilla', { notes: 'Espalda recta' }), ex('e2', 'Zancada', { reps: '10/pierna' }));
 
-  it('enseña el ejercicio, su objetivo y sus notas sin tener que abrir nada', () => {
+  it('enseña el ejercicio, su objetivo y todas sus series, sin las notas', () => {
     renderWorkout({ activeDay: twoExercises });
-    expect(screen.getByText('Ejercicio 1 de 2')).toBeTruthy();
     expect(title()).toBe('Sentadilla');
     expect(screen.getByText('2 × 8')).toBeTruthy();
-    expect(screen.getByText('Espalda recta')).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Serie 1 de 2, Sentadilla' })).toBeTruthy();
+    expect(screen.getAllByRole('spinbutton', { name: /^Sentadilla, serie \d, peso en kilos$/ })).toHaveLength(2);
+    expect(screen.getByRole('button', { name: 'Ejercicio 1 de 2. Ver todos los ejercicios' }).textContent).toBe('1 de 2');
+    expect(screen.queryByText('Espalda recta')).toBeNull();
   });
 
-  it('marcar la serie pasa a la siguiente y avisa del descanso del ejercicio', async () => {
+  it('señala la primera serie pendiente como la que toca', () => {
+    renderWorkout({ activeDay: twoExercises });
+    expect(nextUp()).toBe('Marcar serie 1 de Sentadilla');
+  });
+
+  it('marcar una serie avisa del descanso del ejercicio y pasa a la siguiente', async () => {
     const user = userEvent.setup();
     const onToggleDone = vi.fn();
     render(<Live activeDay={dayOf(ex('e1', 'Sentadilla', { rest: 90 }), ex('e2', 'Zancada'))} onToggleDone={onToggleDone} />);
-    await user.click(done());
+    await user.click(check(1));
     expect(onToggleDone).toHaveBeenCalledWith('e1', 1, 90);
-    expect(screen.getByRole('region', { name: 'Serie 2 de 2, Sentadilla' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: '1 de 4 series hechas. Ver todos los ejercicios' })).toBeTruthy();
+    expect(check(1).getAttribute('aria-pressed')).toBe('true');
+    expect(nextUp()).toBe('Marcar serie 2 de Sentadilla');
+    expect(screen.getByText('1 de 4 series hechas')).toBeTruthy();
+  });
+
+  it('se puede marcar una serie salteada', async () => {
+    const user = userEvent.setup();
+    const onToggleDone = vi.fn();
+    render(<Live activeDay={twoExercises} onToggleDone={onToggleDone} />);
+    await user.click(check(2));
+    expect(onToggleDone).toHaveBeenCalledWith('e1', 2, 120);
+    expect(title()).toBe('Sentadilla');
+    expect(nextUp()).toBe('Marcar serie 1 de Sentadilla');
   });
 
   it('al acabar un ejercicio salta al siguiente', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={twoExercises} />);
-    await user.click(done());
-    await user.click(done());
+    await user.click(check(1));
+    await user.click(check(2));
     expect(title()).toBe('Zancada');
-    expect(screen.getByText('Ejercicio 2 de 2')).toBeTruthy();
+    expect(screen.getByText('2 × 10/pierna')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ejercicio 2 de 2. Ver todos los ejercicios' })).toBeTruthy();
+    expect(window.scrollTo).toHaveBeenCalledWith(0, 0);
   });
 
-  it('«Después» adelanta al siguiente ejercicio', async () => {
+  it('las flechas pasan de un ejercicio a otro', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={twoExercises} />);
-    await user.click(screen.getByRole('button', { name: /Después.*Zancada/ }));
+    const previous = () => screen.getByRole('button', { name: 'Ejercicio anterior' });
+    const next = () => screen.getByRole('button', { name: 'Ejercicio siguiente' });
+    expect(previous().disabled).toBe(true);
+    await user.click(next());
     expect(title()).toBe('Zancada');
-    expect(screen.queryByRole('button', { name: /Después/ })).toBeTruthy();
+    expect(next().disabled).toBe(true);
+    await user.click(previous());
+    expect(title()).toBe('Sentadilla');
   });
 
   it('con todo hecho ofrece terminar', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={day} />);
-    await user.click(done());
-    expect(screen.getByText('Entreno completo')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Terminar entreno' })).toBeNull();
+    await user.click(check(1));
     await user.click(screen.getByRole('button', { name: 'Terminar entreno' }));
     expect(screen.getByRole('heading', { level: 1, name: 'Entreno completo' })).toBeTruthy();
   });
 
-  it('retoma por la primera serie pendiente', () => {
+  it('retoma por el primer ejercicio con series pendientes', () => {
     const initial = { e1: { 1: { weight: '60', reps: '8', done: true }, 2: { weight: '60', reps: '8', done: true } }, e2: { 1: { done: true }, 2: {} } };
     render(<Live activeDay={twoExercises} initial={initial} />);
     expect(title()).toBe('Zancada');
-    expect(screen.getByRole('region', { name: 'Serie 2 de 2, Zancada' })).toBeTruthy();
+    expect(nextUp()).toBe('Marcar serie 2 de Zancada');
   });
 });
 
 describe('Workout · peso y repeticiones', () => {
-  const weight = () => screen.getByRole('spinbutton', { name: 'Sentadilla, serie 1, peso en kilos' });
-  const reps = () => screen.getByRole('spinbutton', { name: 'Sentadilla, serie 1, repeticiones, objetivo 8' });
+  const weight = (set = 1) => screen.getByRole('spinbutton', { name: `Sentadilla, serie ${set}, peso en kilos` });
+  const reps = (set = 1) => screen.getByRole('spinbutton', { name: `Sentadilla, serie ${set}, repeticiones, objetivo 8` });
+  const bodyweight = (set) => screen.queryByRole('button', { name: `Serie ${set}: usar peso corporal` });
 
-  it('los botones suben y bajan el valor', async () => {
-    const user = userEvent.setup();
-    const initial = { e1: { 1: { weight: '60', reps: '8', done: false } } };
-    render(<Live activeDay={day} initial={initial} />);
-    await user.click(screen.getByRole('button', { name: 'Subir peso' }));
-    expect(weight().value).toBe('62.5');
-    await user.click(screen.getByRole('button', { name: 'Bajar peso' }));
-    await user.click(screen.getByRole('button', { name: 'Bajar peso' }));
-    expect(weight().value).toBe('57.5');
-    await user.click(screen.getByRole('button', { name: 'Una repetición más' }));
-    expect(reps().value).toBe('9');
-    await user.click(screen.getByRole('button', { name: 'Una repetición menos' }));
-    expect(reps().value).toBe('8');
-  });
-
-  it('también se pueden escribir, y escribir no marca la serie', async () => {
+  it('se escriben en la fila de cada serie, y escribir no la marca', async () => {
     const user = userEvent.setup();
     const onToggleDone = vi.fn();
-    render(<Live activeDay={day} onToggleDone={onToggleDone} />);
-    await user.type(weight(), '42.5');
-    await user.type(reps(), '8');
-    expect(weight().value).toBe('42.5');
-    expect(reps().value).toBe('8');
+    render(<Live activeDay={dayOf(ex('e1', 'Sentadilla'))} onToggleDone={onToggleDone} />);
+    await user.type(weight(1), '42.5');
+    await user.type(reps(1), '8');
+    await user.type(weight(2), '40');
+    expect(weight(1).value).toBe('42.5');
+    expect(reps(1).value).toBe('8');
+    expect(weight(2).value).toBe('40');
     expect(onToggleDone).not.toHaveBeenCalled();
-    expect(done()).toBeTruthy();
+    expect(check(1).getAttribute('aria-pressed')).toBe('false');
   });
 
-  it('con peso corporal el peso queda bloqueado', async () => {
+  it('una serie hecha se corrige sin desmarcarla', async () => {
     const user = userEvent.setup();
-    const bodyweight = dayOf(ex('e1', 'Sentadilla', { sets: 1, allowBW: true }));
-    render(<Live activeDay={bodyweight} />);
-    const toggle = screen.getByRole('button', { name: 'Serie 1: usar peso corporal' });
-    await user.click(toggle);
-    expect(toggle.getAttribute('aria-pressed')).toBe('true');
-    expect(weight().disabled).toBe(true);
-    expect(screen.getByRole('button', { name: 'Subir peso' }).disabled).toBe(true);
+    const onToggleDone = vi.fn();
+    const initial = { e1: { 1: { weight: '60', reps: '8', done: true }, 2: { weight: '60', reps: '', done: false } } };
+    render(<Live activeDay={dayOf(ex('e1', 'Sentadilla'))} initial={initial} onToggleDone={onToggleDone} />);
+    await user.clear(reps(1));
+    await user.type(reps(1), '7');
+    expect(reps(1).value).toBe('7');
+    expect(check(1).getAttribute('aria-pressed')).toBe('true');
+    expect(onToggleDone).not.toHaveBeenCalled();
+  });
+
+  it('desmarcar una serie hecha no pide descanso y vuelve a ser la que toca', async () => {
+    const user = userEvent.setup();
+    const onToggleDone = vi.fn();
+    const initial = { e1: { 1: { weight: '60', reps: '8', done: true }, 2: { weight: '60', reps: '', done: false } } };
+    render(<Live activeDay={dayOf(ex('e1', 'Sentadilla'))} initial={initial} onToggleDone={onToggleDone} />);
+    await user.click(check(1));
+    expect(onToggleDone).toHaveBeenCalledWith('e1', 1, null);
+    expect(nextUp()).toBe('Marcar serie 1 de Sentadilla');
+  });
+
+  it('con peso corporal la casilla del peso pasa a decir PC, y se puede quitar', async () => {
+    const user = userEvent.setup();
+    render(<Live activeDay={dayOf(ex('e1', 'Sentadilla', { sets: 1, allowBW: true }))} />);
+    await user.click(bodyweight(1));
+    expect(bodyweight(1).getAttribute('aria-pressed')).toBe('true');
+    expect(bodyweight(1).textContent).toBe('PC');
+    expect(screen.queryByRole('spinbutton', { name: /peso en kilos/ })).toBeNull();
+    await user.click(bodyweight(1));
+    expect(weight(1).value).toBe('');
+    expect(bodyweight(1).getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('el botón PC solo sale en la serie que toca', () => {
+    renderWorkout({ activeDay: dayOf(ex('e1', 'Sentadilla', { allowBW: true })) });
+    expect(bodyweight(1)).toBeTruthy();
+    expect(bodyweight(2)).toBeNull();
   });
 
   it('sin peso corporal permitido no hay botón PC', () => {
     renderWorkout();
     expect(screen.queryByRole('button', { name: /peso corporal/ })).toBeNull();
-  });
-
-  it('enseña lo que hiciste la última vez en esa serie', () => {
-    const sessions = [{
-      planId: 'p1',
-      dayId: 'otro',
-      date: '2026-10-01T10:00:00.000Z',
-      exercises: { e1: { 1: { weight: '57.5', reps: '7', done: true } } },
-      notes: {},
-    }];
-    renderWorkout({ sessions });
-    expect(screen.getByText('Última vez 57,5 kg × 7')).toBeTruthy();
-  });
-
-  it('no inventa una última vez si esa serie no se hizo', () => {
-    const sessions = [{
-      planId: 'p1',
-      dayId: 'd1',
-      date: '2026-10-01T10:00:00.000Z',
-      exercises: { e1: { 1: { weight: '57.5', reps: '7', done: false } } },
-      notes: {},
-    }];
-    renderWorkout({ sessions });
-    expect(screen.queryByText(/Última vez/)).toBeNull();
-  });
-});
-
-describe('Workout · corregir una serie hecha', () => {
-  const twoSets = dayOf(ex('e1', 'Sentadilla'));
-  const initial = { e1: { 1: { weight: '60', reps: '8', done: true }, 2: { weight: '60', reps: '', done: false } } };
-
-  it('las series hechas quedan a la vista con su resultado', () => {
-    render(<Live activeDay={twoSets} initial={initial} />);
-    expect(screen.getByRole('button', { name: 'Corregir serie 1 de Sentadilla' }).textContent).toContain('60 kg × 8');
-  });
-
-  it('se puede abrir, cambiar y volver a la pendiente', async () => {
-    const user = userEvent.setup();
-    render(<Live activeDay={twoSets} initial={initial} />);
-    await user.click(screen.getByRole('button', { name: 'Corregir serie 1 de Sentadilla' }));
-    expect(screen.getByRole('region', { name: 'Serie 1 de 2, Sentadilla' })).toBeTruthy();
-    await user.click(screen.getByRole('button', { name: 'Una repetición menos' }));
-    await user.click(screen.getByRole('button', { name: 'Listo' }));
-    expect(screen.getByRole('region', { name: 'Serie 2 de 2, Sentadilla' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Corregir serie 1 de Sentadilla' }).textContent).toContain('60 kg × 7');
-  });
-
-  it('desmarcarla no pide descanso', async () => {
-    const user = userEvent.setup();
-    const onToggleDone = vi.fn();
-    render(<Live activeDay={twoSets} initial={initial} onToggleDone={onToggleDone} />);
-    await user.click(screen.getByRole('button', { name: 'Corregir serie 1 de Sentadilla' }));
-    await user.click(screen.getByRole('button', { name: 'Desmarcar serie' }));
-    expect(onToggleDone).toHaveBeenCalledWith('e1', 1, null);
-    expect(done()).toBeTruthy();
   });
 });
 
@@ -240,33 +229,43 @@ describe('Workout · superserie', () => {
   );
   const startAtPair = { ...blank(pair), e1: { 1: { weight: '60', reps: '8', done: true } } };
 
-  it('alterna los dos ejercicios por rondas', async () => {
+  it('enseña los dos ejercicios en la misma pantalla, cada uno con su tabla', () => {
+    render(<Live activeDay={pair} initial={startAtPair} />);
+    expect(title()).toBe('Superserie · ronda 1 de 2');
+    expect(screen.getAllByRole('heading', { level: 2 }).map(h => h.textContent)).toEqual(['Gemelo', 'Abdominales']);
+    expect(screen.getByRole('button', { name: 'Ejercicio 2 y 3 de 3. Ver todos los ejercicios' })).toBeTruthy();
+    expect(screen.getAllByRole('spinbutton', { name: /peso en kilos/ })).toHaveLength(4);
+  });
+
+  it('la serie que toca alterna entre los dos por rondas', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={pair} initial={startAtPair} />);
-    expect(screen.getByText('Superserie · ejercicio 2 de 3')).toBeTruthy();
-    expect(screen.getByRole('region', { name: 'Ronda 1 de 2, Gemelo' })).toBeTruthy();
-    await user.click(done());
-    expect(title()).toBe('Abdominales');
-    expect(screen.getByRole('region', { name: 'Ronda 1 de 2, Abdominales' })).toBeTruthy();
-    await user.click(done());
-    expect(screen.getByRole('region', { name: 'Ronda 2 de 2, Gemelo' })).toBeTruthy();
+    expect(nextUp()).toBe('Marcar serie 1 de Gemelo');
+    await user.click(check(1, 'Gemelo'));
+    expect(nextUp()).toBe('Marcar serie 1 de Abdominales');
+    await user.click(check(1, 'Abdominales'));
+    expect(nextUp()).toBe('Marcar serie 2 de Gemelo');
+    expect(title()).toBe('Superserie · ronda 2 de 2');
   });
 
   it('dentro de la ronda no hay descanso; al acabarla, el del ejercicio', async () => {
     const user = userEvent.setup();
     const onToggleDone = vi.fn();
     render(<Live activeDay={pair} initial={startAtPair} onToggleDone={onToggleDone} />);
-    expect(screen.getByRole('button', { name: /Después.*Abdominales, sin descanso/ })).toBeTruthy();
-    await user.click(done());
-    await user.click(done());
+    await user.click(check(1, 'Gemelo'));
+    await user.click(check(1, 'Abdominales'));
     expect(onToggleDone.mock.calls).toEqual([['e2', 1, null], ['e3', 1, 60]]);
   });
 
-  it('las series hechas dicen de qué ejercicio son', async () => {
+  it('cuando se acaba lo dice y, si no queda nada más, ofrece terminar', async () => {
     const user = userEvent.setup();
     render(<Live activeDay={pair} initial={startAtPair} />);
-    await user.click(done());
-    expect(screen.getByRole('button', { name: 'Corregir serie 1 de Gemelo' }).textContent).toContain('Gemelo');
+    for (const set of [1, 2]) {
+      await user.click(check(set, 'Gemelo'));
+      await user.click(check(set, 'Abdominales'));
+    }
+    expect(title()).toBe('Superserie · completa');
+    expect(screen.getByRole('button', { name: 'Terminar entreno' })).toBeTruthy();
   });
 });
 
@@ -294,7 +293,7 @@ describe('Workout · índice del entreno', () => {
     const dialog = await openIndex(user);
     await user.click(within(dialog).getByRole('button', { name: /Gemelo/ }));
     expect(screen.queryByRole('dialog')).toBeNull();
-    expect(title()).toBe('Gemelo');
+    expect(title()).toBe('Superserie · ronda 1 de 2');
   });
 });
 
@@ -347,21 +346,68 @@ describe('Workout · terminar', () => {
   });
 });
 
-describe('Workout · notas', () => {
+describe('Workout · notas y progreso del ejercicio', () => {
+  const withNotes = dayOf(ex('e1', 'Sentadilla', { sets: 1, notes: 'Espalda recta' }));
+
+  const openMore = async (user) => {
+    await user.click(more());
+    return screen.getByRole('dialog', { name: 'Sentadilla' });
+  };
+
+  it('el botón del ejercicio enseña las notas del plan y la nota de hoy', async () => {
+    const user = userEvent.setup();
+    renderWorkout({ activeDay: withNotes, currentNotes: { e1: 'codos pegados' } });
+    const dialog = await openMore(user);
+    expect(within(dialog).getByText('Espalda recta')).toBeTruthy();
+    expect(within(dialog).getByText('codos pegados')).toBeTruthy();
+    expect(within(dialog).getByRole('button', { name: 'Editar nota' })).toBeTruthy();
+  });
+
+  it('el botón avisa de que hay nota de hoy', () => {
+    const { unmount } = renderWorkout();
+    expect(more().getAttribute('aria-label')).toBe('Notas y progreso de Sentadilla');
+    unmount();
+    renderWorkout({ currentNotes: { e1: 'codos pegados' } });
+    expect(more().getAttribute('aria-label')).toBe('Notas y progreso de Sentadilla, con nota de hoy');
+  });
+
   it('permite escribir espacios en la nota de un ejercicio', async () => {
     const user = userEvent.setup();
     const onSaveNote = vi.fn();
     renderWorkout({ onSaveNote });
-    await user.click(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
-    await user.type(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }), 'codos pegados');
+    await openMore(user);
+    await user.click(screen.getByRole('button', { name: 'Añadir nota' }));
+    const note = screen.getByRole('textbox', { name: 'Nota de Sentadilla' });
+    expect(document.activeElement).toBe(note);
+    await user.type(note, 'codos pegados');
     await user.click(screen.getByRole('button', { name: 'Guardar nota' }));
     expect(onSaveNote).toHaveBeenCalledWith('e1', 'codos pegados');
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(more());
   });
 
-  it('la nota de hoy se ve en el ejercicio', () => {
-    renderWorkout({ currentNotes: { e1: 'codos pegados' } });
-    expect(screen.getByRole('button', { name: 'Nota de Sentadilla: codos pegados. Editar' })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Editar nota de Sentadilla' }).getAttribute('aria-pressed')).toBe('true');
+  it('abre el progreso del ejercicio con el foco en Cerrar', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await openMore(user);
+    await user.click(screen.getByRole('button', { name: 'Ver progreso' }));
+    const dialog = screen.getByRole('dialog', { name: 'Sentadilla' });
+    expect(within(dialog).getByRole('group', { name: 'Periodo' })).toBeTruthy();
+    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar' }));
+  });
+
+  it('el progreso se cierra con Cerrar y con Escape, y el foco vuelve al ejercicio', async () => {
+    const user = userEvent.setup();
+    renderWorkout();
+    await openMore(user);
+    await user.click(screen.getByRole('button', { name: 'Ver progreso' }));
+    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
+    expect(screen.queryByRole('dialog')).toBeNull();
+    expect(document.activeElement).toBe(more());
+    await openMore(user);
+    await user.click(screen.getByRole('button', { name: 'Ver progreso' }));
+    await user.keyboard('{Escape}');
+    expect(screen.queryByRole('dialog')).toBeNull();
   });
 });
 
@@ -433,15 +479,17 @@ describe('Workout · temporizadores', () => {
     expect(rest()).toBe('00:07');
   });
 
-  it('dice a qué hora avisa: la del ejercicio, o ninguna a mitad de superserie', () => {
-    const { unmount } = renderWorkout();
-    expect(screen.getByText('aviso 2:00')).toBeTruthy();
-    unmount();
-    const quick = renderWorkout({ activeDay: dayOf(ex('e1', 'Sentadilla', { rest: 45 })) });
-    expect(screen.getByText('aviso 0:45')).toBeTruthy();
-    quick.unmount();
-    renderWorkout({ restStartedAt: Date.now(), restAlert: null });
-    expect(screen.getByText('sin descanso')).toBeTruthy();
+  it('avisa cuando se cumple el descanso del ejercicio', () => {
+    renderWorkout({ restStartedAt: Date.now() - 58_000, restAlert: 60 });
+    expect(screen.queryByText('Descanso cumplido')).toBeNull();
+    wait(2000);
+    expect(screen.getByText('Descanso cumplido')).toBeTruthy();
+  });
+
+  it('a mitad de una superserie no avisa por mucho que pase el tiempo', () => {
+    renderWorkout({ restStartedAt: Date.now() - 600_000, restAlert: null });
+    wait(1000);
+    expect(screen.queryByText('Descanso cumplido')).toBeNull();
   });
 
   it('el botón reinicia el descanso con el aviso del ejercicio', async () => {
@@ -465,7 +513,8 @@ describe('Workout · temporizadores', () => {
     const user = setupUser();
     const onRestartRest = vi.fn();
     renderWorkout({ onRestartRest });
-    await user.click(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
+    await user.click(more());
+    await user.click(screen.getByRole('button', { name: 'Añadir nota' }));
     await user.type(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }), ' ');
     expect(onRestartRest).not.toHaveBeenCalled();
   });
@@ -473,10 +522,9 @@ describe('Workout · temporizadores', () => {
 
 describe('Workout · espacio con una hoja abierta', () => {
   it.each([
-    ['progreso', 'Progreso de Sentadilla'],
-    ['nota', 'Añadir nota a Sentadilla'],
+    ['notas y progreso', 'Notas y progreso de Sentadilla'],
     ['salir', 'Salir sin guardar'],
-    ['índice', '0 de 1 series hechas. Ver todos los ejercicios'],
+    ['índice', 'Ejercicio 1 de 1. Ver todos los ejercicios'],
   ])('no reinicia el descanso con la hoja de %s abierta aunque el foco salga de ella', async (_label, opener) => {
     const user = userEvent.setup();
     const onRestartRest = vi.fn();
@@ -489,9 +537,8 @@ describe('Workout · espacio con una hoja abierta', () => {
 });
 
 describe.each([
-  ['nota del entreno', 'dialog', 'Añadir nota a Sentadilla', 'Nota · Sentadilla'],
-  ['progreso', 'dialog', 'Progreso de Sentadilla', 'Sentadilla'],
-  ['índice', 'dialog', '0 de 1 series hechas. Ver todos los ejercicios', 'Ejercicios de hoy'],
+  ['notas y progreso', 'dialog', 'Notas y progreso de Sentadilla', 'Sentadilla'],
+  ['índice', 'dialog', 'Ejercicio 1 de 1. Ver todos los ejercicios', 'Ejercicios de hoy'],
   ['salir', 'alertdialog', 'Salir sin guardar', '¿Salir sin guardar?'],
 ])('Workout · hoja de %s', (_label, role, openerName, dialogName) => {
   it('al cerrarla con Escape el foco vuelve al botón que la abrió', async () => {
@@ -518,56 +565,5 @@ describe.each([
       await user.tab({ shift: true });
       expect(dialog.contains(document.activeElement)).toBe(true);
     }
-  });
-});
-
-const NotesHarness = () => {
-  const [notes, setNotes] = useState({ e1: 'codos pegados' });
-  const saveNote = (exId, text) => setNotes(prev => {
-    const next = { ...prev };
-    if (text.trim()) next[exId] = text.trim();
-    else delete next[exId];
-    return next;
-  });
-  return workoutElement({ currentNotes: notes, onSaveNote: saveNote });
-};
-
-describe('Workout · borrar la nota desde su vista previa', () => {
-  it('devuelve el foco al botón de nota del ejercicio', async () => {
-    const user = userEvent.setup();
-    render(<NotesHarness />);
-    await user.click(screen.getByRole('button', { name: /^Nota de Sentadilla: codos pegados/ }));
-    await user.clear(screen.getByRole('textbox', { name: 'Nota de Sentadilla' }));
-    await user.click(screen.getByRole('button', { name: 'Guardar nota' }));
-    expect(screen.queryByRole('button', { name: /^Nota de Sentadilla:/ })).toBeNull();
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Añadir nota a Sentadilla' }));
-  });
-});
-
-describe('Workout · progreso', () => {
-  it('el botón de progreso abre la hoja del ejercicio', async () => {
-    const user = userEvent.setup();
-    renderWorkout();
-    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
-    const dialog = screen.getByRole('dialog', { name: 'Sentadilla' });
-    expect(within(dialog).getByRole('group', { name: 'Periodo' })).toBeTruthy();
-  });
-
-  it('la hoja se cierra con Cerrar y con Escape', async () => {
-    const user = userEvent.setup();
-    renderWorkout();
-    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
-    await user.click(screen.getByRole('button', { name: 'Cerrar' }));
-    expect(screen.queryByRole('dialog')).toBeNull();
-    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
-    await user.keyboard('{Escape}');
-    expect(screen.queryByRole('dialog')).toBeNull();
-  });
-
-  it('abre con el foco en Cerrar', async () => {
-    const user = userEvent.setup();
-    renderWorkout();
-    await user.click(screen.getByRole('button', { name: 'Progreso de Sentadilla' }));
-    expect(document.activeElement).toBe(screen.getByRole('button', { name: 'Cerrar' }));
   });
 });
