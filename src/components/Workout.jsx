@@ -1,18 +1,15 @@
-import { useCallback, useEffect, useRef, useState } from 'react';
-import { formatWeight } from '../lib/format.js';
-import { ExerciseNotes } from './ExerciseNotes.jsx';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { formatRest, formatSet } from '../lib/format.js';
+import { restOf } from '../lib/plan.js';
+import { latestExerciseEntry } from '../lib/session.js';
+import { groupExercises, groupSteps, restAfterStep } from '../lib/superset.js';
+import { countDone, formatElapsed, isDone, nextGroupIndex, pendingStep, stepReps, stepWeight } from '../lib/workout.js';
+import { ConfirmSheet } from './ConfirmSheet.jsx';
 import { ExerciseNoteEditor } from './ExerciseNoteEditor.jsx';
+import { Icon } from './Icon.jsx';
 import { ProgressSheet } from './ProgressSheet.jsx';
-
-const REST_ALERT_SECONDS = 120;
-
-const pad = (n) => String(n).padStart(2, '0');
-
-const formatElapsed = (s) => {
-  const h = Math.floor(s / 3600);
-  const m = Math.floor((s % 3600) / 60);
-  return h > 0 ? `${h}:${pad(m)}:${pad(s % 60)}` : `${pad(m)}:${pad(s % 60)}`;
-};
+import { WorkoutIndex } from './WorkoutIndex.jsx';
+import { WorkoutSummary } from './WorkoutSummary.jsx';
 
 let audioCtx = null;
 
@@ -41,11 +38,15 @@ const playAlert = () => {
   });
 };
 
-const INTERACTIVE = 'input, textarea, select, button, a, [contenteditable="true"], [role="dialog"]';
+const INTERACTIVE = 'input, textarea, select, button, a, [contenteditable="true"], [role="dialog"], [role="alertdialog"]';
 
 const isInteractive = (target) => target instanceof Element && !!target.closest(INTERACTIVE);
 
 const isModalOpen = () => !!document.querySelector('[aria-modal="true"]');
+
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+const sameStep = (a, b) => !!a && !!b && a.exercise.id === b.exercise.id && a.set === b.set;
 
 const useSecondsSince = (start, interval) => {
   const [now, setNow] = useState(() => Date.now());
@@ -59,10 +60,12 @@ const useSecondsSince = (start, interval) => {
   return start === null ? 0 : Math.max(0, Math.floor((now - start) / 1000));
 };
 
-const RestTimer = ({ startedAt, onRestart }) => {
+const RestTimer = ({ startedAt, alertSeconds, onRestart }) => {
   const elapsed = useSecondsSince(startedAt, 250);
   const alertedFor = useRef(null);
-  const over = elapsed >= REST_ALERT_SECONDS;
+  const running = startedAt !== null;
+  const over = running && alertSeconds !== null && elapsed >= alertSeconds;
+  const filled = running && alertSeconds !== null ? Math.min(100, (elapsed / alertSeconds) * 100) : 0;
 
   useEffect(() => {
     if (!over || alertedFor.current === startedAt) return;
@@ -81,16 +84,15 @@ const RestTimer = ({ startedAt, onRestart }) => {
   }, [onRestart]);
 
   return (
-    <div className="rest-row">
-      <span
-        role="timer"
-        aria-label="Descanso"
-        className={`rest-timer${startedAt === null ? ' idle' : ''}${over ? ' over' : ''}`}
-      >
-        {formatElapsed(elapsed)}
+    <div className={`rest${running ? '' : ' idle'}${over ? ' over' : ''}`}>
+      <span className="rest-label">Descanso</span>
+      <span role="timer" aria-label="Descanso" className="rest-time">{formatElapsed(elapsed)}</span>
+      <span className="rest-track" aria-hidden="true">
+        <span className="rest-fill" style={{ width: `${filled}%` }} />
       </span>
+      <span className="rest-alert">{alertSeconds === null ? 'sin descanso' : `aviso ${formatRest(alertSeconds)}`}</span>
       <button className="rest-restart" aria-label="Reiniciar descanso" onClick={onRestart}>
-        <span aria-hidden="true">↻</span>
+        <Icon name="restart" />
       </button>
     </div>
   );
@@ -101,20 +103,39 @@ const WorkoutTimer = ({ startedAt }) => {
 
   return (
     <span className="workout-total">
-      total <span role="timer" aria-label="Tiempo total" className="workout-timer">{formatElapsed(elapsed)}</span>
+      Total <span role="timer" aria-label="Tiempo total" className="workout-timer">{formatElapsed(elapsed)}</span>
     </span>
   );
 };
 
-const hasNotes = (ex) => !!ex.notes?.trim();
+const Segments = ({ exercises, workout, current }) => (
+  <span className="segments" aria-hidden="true">
+    {exercises.map(ex => (
+      <span key={ex.id} className="segment-group" style={{ flexGrow: ex.sets }}>
+        {Array.from({ length: ex.sets }, (_, i) => i + 1).map(set => {
+          const done = !!workout[ex.id]?.[set]?.done;
+          const now = current?.exercise.id === ex.id && current.set === set;
+          return <span key={set} className={`segment${done ? ' done' : ''}${now && !done ? ' now' : ''}`} />;
+        })}
+      </span>
+    ))}
+  </span>
+);
 
-const countDone = (exData) => Object.values(exData).filter(s => s.done).length;
-
-const totalVolume = (exData) => Object.values(exData).reduce((sum, s) => {
-  const weight = parseFloat(s.weight);
-  const reps = parseInt(s.reps, 10);
-  return Number.isNaN(weight) || Number.isNaN(reps) ? sum : sum + weight * reps;
-}, 0);
+const Stepper = ({ unit, children, onDecrease, onIncrease, decreaseLabel, increaseLabel, disabled }) => (
+  <div className="stepper">
+    <button className="stepper-btn" aria-label={decreaseLabel} disabled={disabled} onClick={onDecrease}>
+      <Icon name="minus" size={24} strokeWidth={3} />
+    </button>
+    <div className="stepper-value">
+      {children}
+      {unit && <span className="stepper-unit">{unit}</span>}
+    </div>
+    <button className="stepper-btn" aria-label={increaseLabel} disabled={disabled} onClick={onIncrease}>
+      <Icon name="plus" size={24} strokeWidth={3} />
+    </button>
+  </div>
+);
 
 export function Workout({
   activeDay,
@@ -122,6 +143,7 @@ export function Workout({
   currentNotes,
   startedAt,
   restStartedAt,
+  restAlert = null,
   onRestartRest,
   sessions,
   planId,
@@ -136,14 +158,21 @@ export function Workout({
   onFinish,
   onExit,
 }) {
-  const [notesSheet, setNotesSheet] = useState(null);
+  const groups = useMemo(() => groupExercises(activeDay.exercises), [activeDay]);
+  const [groupIndex, setGroupIndex] = useState(() => {
+    const first = groups.findIndex(group => pendingStep(group, currentWorkout));
+    return first === -1 ? 0 : first;
+  });
+  const [selected, setSelected] = useState(null);
+  const [finishing, setFinishing] = useState(false);
+  const [exitOpener, setExitOpener] = useState(null);
+  const [indexOpener, setIndexOpener] = useState(null);
   const [noteEditor, setNoteEditor] = useState(null);
-  const closeNotes = useCallback(() => setNotesSheet(null), []);
-  const closeNoteEditor = useCallback(() => setNoteEditor(null), []);
-  const noteButtons = useRef({});
-  const openNoteEditor = (ex, e) =>
-    setNoteEditor({ exercise: ex, opener: e.currentTarget, fallback: noteButtons.current[ex.id] });
   const [progressSheet, setProgressSheet] = useState(null);
+  const noteButton = useRef(null);
+  const closeExit = useCallback(() => setExitOpener(null), []);
+  const closeIndex = useCallback(() => setIndexOpener(null), []);
+  const closeNoteEditor = useCallback(() => setNoteEditor(null), []);
   const closeProgress = useCallback(() => setProgressSheet(null), []);
 
   useEffect(() => {
@@ -155,177 +184,278 @@ export function Workout({
     };
   }, []);
 
-  const confirmExit = () => {
-    if (confirm('¿Salir sin guardar? Se perderá este entreno.')) onExit();
+  const exercises = activeDay.exercises;
+  const total = exercises.reduce((sum, ex) => sum + ex.sets, 0);
+  const completed = exercises.reduce((sum, ex) => sum + countDone(currentWorkout, ex), 0);
+  const group = groups[groupIndex];
+  const steps = groupSteps(group);
+  const pending = pendingStep(group, currentWorkout);
+  const current = (selected && steps.find(step => sameStep(step, selected))) || pending;
+  const exercise = current?.exercise ?? group.exercises[0];
+  const set = current ? currentWorkout[exercise.id]?.[current.set] ?? {} : {};
+  const currentDone = !!current && isDone(currentWorkout, current);
+  const isBW = set.weight === 'PC';
+  const position = exercises.findIndex(ex => ex.id === exercise.id) + 1;
+  const sessionNote = currentNotes[exercise.id] || '';
+  const lastSet = current ? latestExerciseEntry(sessions, planId, exercise.id)?.sets?.[current.set] : null;
+  const upcomingGroup = nextGroupIndex(groups, currentWorkout, groupIndex);
+  const nextInRound = current && !currentDone && group.superset
+    ? steps.slice(steps.findIndex(step => sameStep(step, current)) + 1)
+      .find(step => step.set === current.set && !isDone(currentWorkout, step))
+    : null;
+  const idleAlert = restOf(exercise);
+  const restart = useCallback(() => onRestartRest(idleAlert), [onRestartRest, idleAlert]);
+
+  const goToGroup = (index) => {
+    setGroupIndex(index);
+    setSelected(null);
   };
-  const total = activeDay.exercises.reduce((sum, ex) => sum + ex.sets, 0);
-  const completed = activeDay.exercises.reduce(
-    (sum, ex) => sum + countDone(currentWorkout[ex.id] || {}),
-    0,
-  );
+
+  const markDone = () => {
+    const after = {
+      ...currentWorkout,
+      [exercise.id]: { ...currentWorkout[exercise.id], [current.set]: { ...set, done: true } },
+    };
+    onToggleDone(exercise.id, current.set, restAfterStep(group, current));
+    setSelected(null);
+    if (pendingStep(group, after)) return;
+    const next = nextGroupIndex(groups, after, groupIndex);
+    if (next !== null) setGroupIndex(next);
+  };
+
+  if (finishing) {
+    return (
+      <WorkoutSummary
+        day={activeDay}
+        workout={currentWorkout}
+        sessions={sessions}
+        planId={planId}
+        startedAt={startedAt}
+        completed={completed}
+        total={total}
+        onBack={() => setFinishing(false)}
+        onSave={onFinish}
+      />
+    );
+  }
+
+  const kicker = group.superset
+    ? `Superserie · ejercicio ${position} de ${exercises.length}`
+    : `Ejercicio ${position} de ${exercises.length}`;
+  const setTitle = current && (group.superset
+    ? `Ronda ${current.set} de ${Math.max(...group.exercises.map(e => e.sets))}`
+    : `Serie ${current.set} de ${exercise.sets}`);
+  const doneSteps = steps.filter(step => isDone(currentWorkout, step) && !sameStep(step, current));
 
   return (
-    <>
-      <div className="workout-top">
-        <div className="workout-header">
-          <div className="workout-header-side">
-            <button className="back-btn" onClick={confirmExit}>← Salir</button>
-            <button
-              className="save-btn"
-              aria-label={`Guardar entreno, ${completed} de ${total} series`}
-              disabled={completed === 0}
-              onClick={onFinish}
-            >
-              <span className="save-btn-icon" aria-hidden="true">✓</span>
-              <span className="save-btn-label">Guardar</span>
-              <span className="save-btn-count">{completed}/{total}</span>
-            </button>
-          </div>
-          <div className="timer-slot">
-            <RestTimer startedAt={restStartedAt} onRestart={onRestartRest} />
+    <div className="workout" style={{ '--accent': activeDay.color }}>
+      <header className="workout-top">
+        <div className="workout-bar">
+          <button className="round-btn" aria-label="Salir sin guardar" onClick={(e) => setExitOpener(e.currentTarget)}>
+            <Icon name="close" />
+          </button>
+          <div className="workout-title">
+            <span className="workout-day">{activeDay.label}</span>
             <WorkoutTimer startedAt={startedAt} />
           </div>
-          <div className="workout-header-side end">
-            <span className="day-id">
-              <span className="dot" style={{ background: activeDay.color }} />
-              <span className="day-label">{activeDay.label}</span>
-            </span>
-          </div>
+          <button className="pill-btn" onClick={() => setFinishing(true)}>Terminar</button>
         </div>
-        <div className="progress-container">
-          <div className="progress-bar">
-            <div
-              className="progress-fill"
-              style={{ width: `${total > 0 ? (completed / total) * 100 : 0}%`, background: activeDay.color }}
-            />
+        <button
+          className="segments-btn"
+          aria-label={`${completed} de ${total} series hechas. Ver todos los ejercicios`}
+          onClick={(e) => setIndexOpener(e.currentTarget)}
+        >
+          <Segments exercises={exercises} workout={currentWorkout} current={current} />
+        </button>
+        <span className="sr-only" aria-live="polite">{completed} de {total} series hechas</span>
+      </header>
+      <main className="workout-main">
+        <div className="exercise-head">
+          <p className="kicker">{kicker}</p>
+          <div className="exercise-title-row">
+            <h1 className="exercise-title">{exercise.name}</h1>
+            <div className="exercise-actions">
+              <button
+                className="icon-btn"
+                aria-label={`Progreso de ${exercise.name}`}
+                onClick={(e) => setProgressSheet({ exercise, opener: e.currentTarget })}
+              >
+                <Icon name="chart" />
+              </button>
+              <button
+                ref={noteButton}
+                className={`icon-btn${sessionNote ? ' on' : ''}`}
+                aria-label={sessionNote ? `Editar nota de ${exercise.name}` : `Añadir nota a ${exercise.name}`}
+                aria-pressed={!!sessionNote}
+                onClick={(e) => setNoteEditor({ exercise, opener: e.currentTarget, fallback: noteButton.current })}
+              >
+                <Icon name="note" />
+              </button>
+            </div>
           </div>
-          <span className="progress-text" aria-live="polite">{completed}/{total}</span>
+          <p className="exercise-target">
+            <span className="exercise-target-label">Objetivo</span>
+            <span className="exercise-target-value">{exercise.sets} × {exercise.reps}</span>
+          </p>
         </div>
-      </div>
-      <div className="workout-exercises">
-        {activeDay.exercises.map((ex, i) => {
-          const volume = totalVolume(currentWorkout[ex.id] || {});
-          const sessionNote = currentNotes[ex.id] || '';
-          return (
-            <section key={ex.id} className="exercise-block" aria-label={ex.name}>
-              <div className="ex-block-header">
-                <span className="ex-block-name">
-                  <span className="ex-num">{i + 1}</span>{ex.name}
-                  {hasNotes(ex) && (
-                    <button
-                      className="info-btn"
-                      aria-label={`Notas de ${ex.name}`}
-                      onClick={(e) => setNotesSheet({ exercise: ex, opener: e.currentTarget })}
-                    >
-                      <span aria-hidden="true">i</span>
-                    </button>
-                  )}
-                </span>
-                <span className="ex-block-actions">
-                  {volume > 0 && <span className="ex-block-meta">{formatWeight(volume)}</span>}
-                  <button
-                    className="note-btn"
-                    aria-label={`Progreso de ${ex.name}`}
-                    onClick={(e) => setProgressSheet({ exercise: ex, opener: e.currentTarget })}
-                  >
-                    <svg aria-hidden="true" width="14" height="14" viewBox="0 0 14 14" fill="currentColor">
-                      <rect x="1" y="7" width="3" height="6" rx="0.5" />
-                      <rect x="5.5" y="4" width="3" height="9" rx="0.5" />
-                      <rect x="10" y="1" width="3" height="12" rx="0.5" />
-                    </svg>
-                  </button>
-                  <button
-                    ref={(el) => { noteButtons.current[ex.id] = el; }}
-                    className={`note-btn ${sessionNote ? 'active' : ''}`}
-                    aria-label={sessionNote ? `Editar nota de ${ex.name}` : `Añadir nota a ${ex.name}`}
-                    aria-pressed={!!sessionNote}
-                    onClick={(e) => openNoteEditor(ex, e)}
-                  >
-                    <span aria-hidden="true">✎</span>
-                  </button>
-                </span>
-              </div>
-              {sessionNote && (
+        {exercise.notes?.trim() && <p className="exercise-notes">{exercise.notes}</p>}
+        {sessionNote && (
+          <button
+            className="session-note"
+            aria-label={`Nota de ${exercise.name}: ${sessionNote}. Editar`}
+            onClick={(e) => setNoteEditor({ exercise, opener: e.currentTarget, fallback: noteButton.current })}
+          >
+            <span className="kicker">Nota de hoy</span>
+            {sessionNote}
+          </button>
+        )}
+        {doneSteps.length > 0 && (
+          <ol className="done-list">
+            {doneSteps.map(step => (
+              <li key={`${step.exercise.id}:${step.set}`}>
                 <button
-                  className="ex-note-preview"
-                  aria-label={`Nota de ${ex.name}: ${sessionNote}. Editar`}
-                  onClick={(e) => openNoteEditor(ex, e)}
+                  className="done-row"
+                  aria-label={`Corregir serie ${step.set} de ${step.exercise.name}`}
+                  onClick={() => setSelected(step)}
                 >
-                  {sessionNote}
+                  <span className="done-num">{step.set}</span>
+                  {group.superset && <span className="done-name">{step.exercise.name}</span>}
+                  <span className="done-value">{formatSet(currentWorkout[step.exercise.id]?.[step.set])}</span>
+                  <Icon name="check" size={22} strokeWidth={3} />
                 </button>
+              </li>
+            ))}
+          </ol>
+        )}
+        {current ? (
+          <section className={`set-card${currentDone ? ' done' : ''}`} aria-label={`${setTitle}, ${exercise.name}`}>
+            <div className="set-card-head">
+              <span className="set-card-title">{setTitle}{currentDone && ' · hecha'}</span>
+              {lastSet?.done && <span className="set-card-last">Última vez {formatSet(lastSet)}</span>}
+            </div>
+            <Stepper
+              unit={isBW ? null : 'kg'}
+              disabled={isBW}
+              decreaseLabel="Bajar peso"
+              increaseLabel="Subir peso"
+              onDecrease={() => onSaveField(exercise.id, current.set, 'weight', stepWeight(set.weight, -1))}
+              onIncrease={() => onSaveField(exercise.id, current.set, 'weight', stepWeight(set.weight, 1))}
+            >
+              <input
+                className="stepper-input"
+                type="number"
+                inputMode="decimal"
+                autoComplete="off"
+                aria-label={`${exercise.name}, serie ${current.set}, peso en kilos`}
+                placeholder={isBW ? 'PC' : '—'}
+                value={isBW ? '' : (set.weight || '')}
+                disabled={isBW}
+                onInput={(e) => onSaveField(exercise.id, current.set, 'weight', e.target.value)}
+                onChange={() => {}}
+              />
+              {exercise.allowBW && (
+                <button
+                  className={`pc-btn${isBW ? ' on' : ''}`}
+                  aria-label={`Serie ${current.set}: usar peso corporal`}
+                  aria-pressed={isBW}
+                  onClick={() => onTogglePC(exercise.id, current.set)}
+                >PC</button>
               )}
-              <div className="sets-grid">
-                <div className="set-header-row" aria-hidden="true">
-                  <span className="set-label narrow" />
-                  <span className="set-label">Peso</span>
-                  <span className="set-label">
-                    <span className="set-label-text">
-                      Reps{ex.reps && <span className="set-target"> · {ex.reps}</span>}
-                    </span>
-                  </span>
-                  <span className="set-label check" />
-                </div>
-                {Array.from({ length: ex.sets }, (_, k) => k + 1).map(n => {
-                  const set = currentWorkout[ex.id]?.[n] || {};
-                  const isBW = set.weight === 'PC';
-                  return (
-                    <div key={n} className={`set-row ${set.done ? 'done' : ''}`}>
-                      <span className="set-num">{n}</span>
-                      <div className="set-weight">
-                        <input
-                          className="set-input"
-                          type="number"
-                          inputMode="decimal"
-                          autoComplete="off"
-                          aria-label={`${ex.name}, serie ${n}, peso en kilos`}
-                          placeholder="—"
-                          value={isBW ? '' : (set.weight || '')}
-                          disabled={isBW}
-                          onInput={(e) => onSaveField(ex.id, n, 'weight', e.target.value)}
-                          onChange={() => {}}
-                        />
-                        {ex.allowBW && (
-                          <button
-                            tabIndex={-1}
-                            className={`bw-btn ${isBW ? 'active' : ''}`}
-                            aria-label={`Serie ${n}: usar peso corporal`}
-                            aria-pressed={isBW}
-                            onClick={() => onTogglePC(ex.id, n)}
-                          >PC</button>
-                        )}
-                      </div>
-                      <div className="set-reps">
-                        <input
-                          className="set-input"
-                          type="number"
-                          inputMode="numeric"
-                          autoComplete="off"
-                          aria-label={`${ex.name}, serie ${n}, repeticiones${ex.reps ? `, objetivo ${ex.reps}` : ''}`}
-                          placeholder={ex.reps}
-                          value={set.reps || ''}
-                          onInput={(e) => onSaveField(ex.id, n, 'reps', e.target.value)}
-                          onChange={() => {}}
-                        />
-                      </div>
-                      <button
-                        tabIndex={-1}
-                        className={`check-btn ${set.done ? 'done' : ''}`}
-                        aria-label={`Marcar serie ${n} de ${ex.name}`}
-                        aria-pressed={!!set.done}
-                        onClick={() => onToggleDone(ex.id, n)}
-                      >
-                        <span aria-hidden="true">✓</span>
-                      </button>
-                    </div>
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
-      </div>
-      {notesSheet && (
-        <ExerciseNotes exercise={notesSheet.exercise} opener={notesSheet.opener} onClose={closeNotes} />
+            </Stepper>
+            <Stepper
+              unit="reps"
+              decreaseLabel="Una repetición menos"
+              increaseLabel="Una repetición más"
+              onDecrease={() => onSaveField(exercise.id, current.set, 'reps', stepReps(set.reps, -1))}
+              onIncrease={() => onSaveField(exercise.id, current.set, 'reps', stepReps(set.reps, 1))}
+            >
+              <input
+                className="stepper-input"
+                type="number"
+                inputMode="numeric"
+                autoComplete="off"
+                aria-label={`${exercise.name}, serie ${current.set}, repeticiones${exercise.reps ? `, objetivo ${exercise.reps}` : ''}`}
+                placeholder="—"
+                value={set.reps || ''}
+                onInput={(e) => onSaveField(exercise.id, current.set, 'reps', e.target.value)}
+                onChange={() => {}}
+              />
+            </Stepper>
+            {currentDone && (
+              <button className="btn quiet" onClick={() => onToggleDone(exercise.id, current.set, null)}>
+                Desmarcar serie
+              </button>
+            )}
+          </section>
+        ) : (
+          <p className="group-done">
+            {completed === total && 'Entreno completo'}
+            {completed < total && (group.superset ? 'Superserie completa' : 'Ejercicio completo')}
+          </p>
+        )}
+      </main>
+      <footer className="workout-foot">
+        <RestTimer
+          startedAt={restStartedAt}
+          alertSeconds={restStartedAt === null ? idleAlert : restAlert}
+          onRestart={restart}
+        />
+        {current && !currentDone && (
+          <button className="btn primary big" onClick={markDone}>
+            <Icon name="check" size={26} strokeWidth={3} />
+            Serie hecha
+          </button>
+        )}
+        {current && currentDone && (
+          <button className="btn primary big" onClick={() => setSelected(null)}>Listo</button>
+        )}
+        {!current && completed === total && (
+          <button className="btn primary big" onClick={() => setFinishing(true)}>Terminar entreno</button>
+        )}
+        {!current && completed < total && upcomingGroup !== null && (
+          <button className="btn primary big" onClick={() => goToGroup(upcomingGroup)}>Siguiente ejercicio</button>
+        )}
+        {nextInRound && (
+          <button className="next-row" onClick={() => setSelected(nextInRound)}>
+            <span className="kicker">Después</span>
+            <span className="next-row-name">{nextInRound.exercise.name}, sin descanso</span>
+            <Icon name="right" size={18} />
+          </button>
+        )}
+        {!nextInRound && current && upcomingGroup !== null && upcomingGroup !== groupIndex && (
+          <button className="next-row" onClick={() => goToGroup(upcomingGroup)}>
+            <span className="kicker">Después</span>
+            <span className="next-row-name">{groups[upcomingGroup].exercises.map(e => e.name).join(' + ')}</span>
+            <Icon name="right" size={18} />
+          </button>
+        )}
+      </footer>
+      {exitOpener && (
+        <ConfirmSheet
+          title="¿Salir sin guardar?"
+          text={completed > 0
+            ? `Se perderá este entreno, con ${plural(completed, 'serie marcada', 'series marcadas')}.`
+            : 'Se perderá este entreno.'}
+          confirmLabel="Salir sin guardar"
+          cancelLabel="Seguir entrenando"
+          danger
+          opener={exitOpener}
+          onConfirm={onExit}
+          onCancel={closeExit}
+        />
+      )}
+      {indexOpener && (
+        <WorkoutIndex
+          groups={groups}
+          workout={currentWorkout}
+          currentIndex={groupIndex}
+          opener={indexOpener}
+          onPick={(index) => {
+            goToGroup(index);
+            closeIndex();
+          }}
+          onClose={closeIndex}
+        />
       )}
       {progressSheet && (
         <ProgressSheet
@@ -351,6 +481,6 @@ export function Workout({
           onClose={closeNoteEditor}
         />
       )}
-    </>
+    </div>
   );
 }

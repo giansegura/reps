@@ -209,3 +209,40 @@ describe('diffPlans', () => {
     expect(diffPlans(current, next).hasChanges).toBe(false);
   });
 });
+
+describe('diffPlans · descanso y superserie', () => {
+  const changedIn = (next) => diffPlans(current, next).days.flatMap(d => d.changed);
+
+  const withTorso = (exercises) => ({ ...current, days: [day('d1', 'Torso', exercises), current.days[1]] });
+
+  it('detecta un cambio de descanso', () => {
+    const changed = changedIn(withTorso([{ ...ex('e1', 'Press banca'), rest: 90 }, ex('e2', 'Remo')]));
+    expect(changed).toHaveLength(1);
+    expect(changed[0].fields).toEqual(['rest']);
+  });
+
+  it('poner el descanso de siempre no es un cambio', () => {
+    const next = withTorso([{ ...ex('e1', 'Press banca'), rest: 120 }, ex('e2', 'Remo')]);
+    expect(diffPlans(current, next).hasChanges).toBe(false);
+  });
+
+  it('una superserie nueva marca a los dos y dice con quién va cada uno', () => {
+    const changed = changedIn(withTorso([{ ...ex('e1', 'Press banca'), superset: 'A' }, { ...ex('e2', 'Remo'), superset: 'A' }]));
+    expect(changed.map(c => [c.exercise.id, c.fields, c.supersetWith])).toEqual([
+      ['e1', ['superset'], ['Remo']],
+      ['e2', ['superset'], ['Press banca']],
+    ]);
+  });
+
+  it('cambiar solo la etiqueta no es un cambio', () => {
+    const paired = withTorso([{ ...ex('e1', 'Press banca'), superset: 'A' }, { ...ex('e2', 'Remo'), superset: 'A' }]);
+    const relabelled = withTorso([{ ...ex('e1', 'Press banca'), superset: 'Z' }, { ...ex('e2', 'Remo'), superset: 'Z' }]);
+    expect(diffPlans(paired, relabelled).hasChanges).toBe(false);
+  });
+
+  it('deshacer la superserie se nota y no trae pareja', () => {
+    const paired = withTorso([{ ...ex('e1', 'Press banca'), superset: 'A' }, { ...ex('e2', 'Remo'), superset: 'A' }]);
+    const changed = diffPlans(paired, current).days.flatMap(d => d.changed);
+    expect(changed.map(c => [c.fields, c.supersetWith])).toEqual([[['superset'], []], [['superset'], []]]);
+  });
+});

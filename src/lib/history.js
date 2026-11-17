@@ -1,3 +1,5 @@
+import { supersetPartners } from './superset.js';
+
 const MISSING = '—';
 const DELETED_PLAN = { name: 'Plan eliminado' };
 export const DELETED_DAY = { label: 'Día eliminado', exercises: [] };
@@ -30,9 +32,14 @@ const header = (sessions, now) => [
   'Solo se incluyen las series marcadas como hechas. Formato: peso × repeticiones.',
 ];
 
-const exerciseSummary = (ex) => `${ex.name} (${ex.sets}×${ex.reps})`;
+const supersetText = (day, ex) => {
+  const partners = supersetPartners(day.exercises, ex.id).map(partner => partner.name);
+  return partners.length > 0 ? `, superserie con ${partners.join(' y ')}` : '';
+};
 
-const dayLine = (day) => `- ${day.label}: ${day.exercises.map(exerciseSummary).join(', ')}`;
+const exerciseSummary = (day, ex) => `${ex.name} (${ex.sets}×${ex.reps}${supersetText(day, ex)})`;
+
+const dayLine = (day) => `- ${day.label}: ${day.exercises.map(ex => exerciseSummary(day, ex)).join(', ')}`;
 
 const plansSection = (plansState) => [
   '## Planes',
@@ -78,10 +85,13 @@ const findDay = (plansState, session) => {
   return { plan, day };
 };
 
-const sessionExercises = (day, session) => {
-  const known = new Set(day.exercises.map(ex => ex.id));
-  const orphans = Object.keys(session.exercises).filter(id => !known.has(id)).map(deletedExercise);
-  return [...day.exercises, ...orphans];
+const sessionExercises = (plan, day, session) => {
+  const inDay = new Set(day.exercises.map(ex => ex.id));
+  const elsewhere = new Map((plan.days ?? []).flatMap(d => d.exercises.map(ex => [ex.id, ex])));
+  const others = Object.keys(session.exercises)
+    .filter(id => !inDay.has(id))
+    .map(id => elsewhere.get(id) ?? deletedExercise(id));
+  return [...day.exercises, ...others];
 };
 
 const sessionBlock = (plansState, session) => {
@@ -90,7 +100,7 @@ const sessionBlock = (plansState, session) => {
   return [
     '',
     `### ${localDate(date)} · ${weekday(date)} ${localTime(date)} · ${plan.name} › ${day.label}`,
-    ...sessionExercises(day, session)
+    ...sessionExercises(plan, day, session)
       .flatMap(ex => exerciseLines(ex, session.exercises[ex.id], session.notes?.[ex.id])),
   ];
 };

@@ -1,3 +1,6 @@
+import { restOf } from './plan.js';
+import { supersetPartners } from './superset.js';
+
 const exerciseIds = (plan) => plan.days.flatMap(d => d.exercises.map(e => e.id));
 
 const sharesIds = (plan, incoming) => {
@@ -56,10 +59,15 @@ export const reconcilePlan = (current, incoming) => {
   };
 };
 
-const exerciseFields = (before, after) => [
+const partnerIds = (day, exerciseId) =>
+  supersetPartners(day.exercises, exerciseId).map(e => e.id).sort().join(' ');
+
+const exerciseFields = (before, after, beforeDay, afterDay) => [
   before.name !== after.name && 'name',
   (before.sets !== after.sets || before.reps !== after.reps) && 'volume',
   !!before.allowBW !== !!after.allowBW && 'allowBW',
+  restOf(before) !== restOf(after) && 'rest',
+  partnerIds(beforeDay, before.id) !== partnerIds(afterDay, after.id) && 'superset',
   (before.notes ?? '') !== (after.notes ?? '') && 'notes',
 ].filter(Boolean);
 
@@ -107,10 +115,16 @@ export const diffPlans = (current, next) => {
         entry.added.push(e);
         return;
       }
-      const fields = exerciseFields(prev.exercise, e);
+      const fields = exerciseFields(prev.exercise, e, prev.day, d);
       const movedFrom = prev.day.id === d.id ? null : prev.day.label;
-      if (fields.length > 0 || movedFrom !== null) entry.changed.push({ exercise: e, before: prev.exercise, fields, movedFrom });
-      else unchanged += 1;
+      const superset = fields.includes('superset')
+        ? { supersetWith: supersetPartners(d.exercises, e.id).map(partner => partner.name) }
+        : {};
+      if (fields.length > 0 || movedFrom !== null) {
+        entry.changed.push({ exercise: e, before: prev.exercise, fields, movedFrom, ...superset });
+      } else {
+        unchanged += 1;
+      }
     });
     return entry;
   });

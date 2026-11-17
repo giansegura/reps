@@ -1,16 +1,16 @@
 import { useState } from 'react';
+import { Icon } from './Icon.jsx';
 import { ProgressChart } from './ProgressChart.jsx';
 
 const optionValue = (day, exercise) => `${day.id}:${exercise.id}`;
 
-export const Progress = ({ plan, sessions, period, metric, onPeriodChange, onMetricChange, onBack }) => {
+export const Progress = ({ plan, sessions, period, metric, onPeriodChange, onMetricChange }) => {
   const days = plan.days.filter(d => d.exercises.length > 0);
   const [selected, setSelected] = useState(() => (days[0] ? optionValue(days[0], days[0].exercises[0]) : null));
   const header = (
-    <div className="page-header">
-      <button className="back-btn" onClick={onBack}>← Inicio</button>
-      <h1 className="page-title">{plan.name}</h1>
-    </div>
+    <header className="page-top">
+      <h1 className="page-title">Progreso</h1>
+    </header>
   );
 
   if (days.length === 0) {
@@ -28,20 +28,23 @@ export const Progress = ({ plan, sessions, period, metric, onPeriodChange, onMet
   return (
     <>
       {header}
-      <select
-        className="field-input progress-select"
-        aria-label="Ejercicio"
-        value={optionValue(day, exercise)}
-        onChange={(e) => setSelected(e.target.value)}
-      >
-        {days.map(d => (
-          <optgroup key={d.id} label={d.label}>
-            {d.exercises.map(ex => (
-              <option key={ex.id} value={optionValue(d, ex)}>{ex.name}</option>
-            ))}
-          </optgroup>
-        ))}
-      </select>
+      <div className="select-wrap">
+        <select
+          className="select"
+          aria-label="Ejercicio"
+          value={optionValue(day, exercise)}
+          onChange={(e) => setSelected(e.target.value)}
+        >
+          {days.map(d => (
+            <optgroup key={d.id} label={d.label}>
+              {d.exercises.map(ex => (
+                <option key={ex.id} value={optionValue(d, ex)}>{ex.name}</option>
+              ))}
+            </optgroup>
+          ))}
+        </select>
+        <Icon name="down" size={18} />
+      </div>
       <p className="progress-day">
         <span className="dot" style={{ background: day.color }} />
         {day.label}

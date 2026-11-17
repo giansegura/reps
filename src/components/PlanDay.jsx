@@ -1,47 +1,67 @@
-import { useState } from 'react';
-import { MAX_SETS, PALETTE, parseSets } from '../lib/plan.js';
+import { useCallback, useState } from 'react';
+import { PALETTE } from '../lib/plan.js';
+import { countSessions } from '../lib/session.js';
+import { groupExercises } from '../lib/superset.js';
+import { ConfirmSheet } from './ConfirmSheet.jsx';
+import { Icon } from './Icon.jsx';
 
-const SetsInput = ({ id, exercise, onChange }) => {
-  const [draft, setDraft] = useState(null);
+const COLOR_NAMES = ['Verde', 'Amarillo', 'Naranja', 'Azul', 'Morado', 'Rosa', 'Turquesa', 'Rojo'];
 
-  const onInput = (value) => {
-    setDraft(value);
-    const sets = parseSets(value);
-    if (sets !== null && sets !== exercise.sets) onChange(sets);
+const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+
+export function PlanDay({ day, planId, planName, sessions, onBack, onUpdateDay, onAddExercise, onOpenExercise, onMoveExercise, onRemoveDay }) {
+  const [removeOpener, setRemoveOpener] = useState(null);
+  const closeRemove = useCallback(() => setRemoveOpener(null), []);
+  const last = day.exercises.length - 1;
+
+  const removeWarning = () => {
+    const count = countSessions(sessions, { planId, dayId: day.id });
+    return count > 0
+      ? `Tienes ${plural(count, 'entreno guardado', 'entrenos guardados')} de este día. Se conservarán en este dispositivo pero dejarán de mostrarse.`
+      : undefined;
   };
 
-  return (
-    <input
-      id={id}
-      className="field-input narrow"
-      type="number"
-      inputMode="numeric"
-      min="1"
-      max={MAX_SETS}
-      aria-label={`Series de ${exercise.name || 'ejercicio'}`}
-      value={draft ?? exercise.sets}
-      onInput={(e) => onInput(e.target.value)}
-      onChange={() => {}}
-      onBlur={() => setDraft(null)}
-    />
-  );
-};
-
-export function PlanDay({ day, onBack, onUpdateDay, onAddExercise, onUpdateExercise, onRemoveExercise, onMoveExercise }) {
-  const confirmRemove = (ex) => {
-    if (confirm(`¿Borrar "${ex.name || 'este ejercicio'}"?`)) onRemoveExercise(ex.id);
+  const row = (ex) => {
+    const index = day.exercises.findIndex(e => e.id === ex.id);
+    const name = ex.name || 'Sin nombre';
+    return (
+      <div key={ex.id} className="edit-row">
+        <button className="edit-row-main" aria-label={`Editar ${name}`} onClick={() => onOpenExercise(ex.id)}>
+          <span className="edit-row-num">{index + 1}</span>
+          <span className="edit-row-text">
+            <span className="edit-row-title">{name}</span>
+            <span className="edit-row-meta">{ex.sets} × {ex.reps || '—'}</span>
+          </span>
+        </button>
+        <button
+          className="move-btn"
+          aria-label={`Subir ${name}`}
+          disabled={index === 0}
+          onClick={() => onMoveExercise(ex.id, -1)}
+        >
+          <Icon name="up" />
+        </button>
+        <button
+          className="move-btn"
+          aria-label={`Bajar ${name}`}
+          disabled={index === last}
+          onClick={() => onMoveExercise(ex.id, 1)}
+        >
+          <Icon name="down" />
+        </button>
+      </div>
+    );
   };
 
   return (
     <>
-      <div className="page-header">
-        <button className="back-btn" onClick={onBack}>← Editar plan</button>
-        <span className="day-id">
-          <span className="dot" style={{ background: day.color }} />
-          <span className="page-title">{day.label}</span>
-        </span>
-      </div>
-
+      <header className="page-top">
+        <button className="back-btn" onClick={onBack}>
+          <Icon name="back" size={20} />
+          {planName || 'Editar plan'}
+        </button>
+      </header>
+      <h1 className="sr-only">Editar día</h1>
       <div className="field">
         <label className="field-label" htmlFor="day-label">Nombre</label>
         <input
@@ -53,86 +73,51 @@ export function PlanDay({ day, onBack, onUpdateDay, onAddExercise, onUpdateExerc
           onChange={() => {}}
         />
       </div>
-
       <div className="field">
-        <span className="field-label">Color</span>
-        <div className="color-row">
-          {PALETTE.map(c => (
+        <span id="day-color" className="field-label">Color</span>
+        <div className="color-row" role="group" aria-labelledby="day-color">
+          {PALETTE.map((c, i) => (
             <button
               key={c}
-              className={`color-chip ${day.color === c ? 'active' : ''}`}
-              style={{ background: c }}
-              aria-label={`Color ${c}`}
+              className={`color-chip${day.color === c ? ' on' : ''}`}
+              aria-label={COLOR_NAMES[i] ?? `Color ${c}`}
               aria-pressed={day.color === c}
               onClick={() => onUpdateDay({ color: c })}
-            />
+            >
+              <span style={{ background: c }} />
+            </button>
           ))}
         </div>
       </div>
-
-      <div className="exercise-list">
-        {day.exercises.map((ex, i) => (
-          <div key={ex.id} className="ex-edit-row">
-            <div className="ex-edit-grid">
-              <input
-                className="field-input"
-                value={ex.name}
-                placeholder="Nombre del ejercicio…"
-                onInput={(e) => onUpdateExercise(ex.id, { name: e.target.value })}
-                onChange={() => {}}
-              />
-              <button
-                className="icon-btn"
-                aria-label="Subir ejercicio"
-                disabled={i === 0}
-                onClick={() => onMoveExercise(ex.id, -1)}
-              >↑</button>
-              <button
-                className="icon-btn"
-                aria-label="Bajar ejercicio"
-                disabled={i === day.exercises.length - 1}
-                onClick={() => onMoveExercise(ex.id, 1)}
-              >↓</button>
-              <button className="icon-btn danger" aria-label="Borrar ejercicio" onClick={() => confirmRemove(ex)}>✕</button>
+      <h2 className="kicker list-title">Ejercicios</h2>
+      {day.exercises.length === 0 ? (
+        <p className="empty-text">Este día aún no tiene ejercicios.</p>
+      ) : (
+        <div className="edit-list">
+          {groupExercises(day.exercises).map(group => (group.superset ? (
+            <div key={group.exercises[0].id} className="edit-superset">
+              <span className="kicker">Superserie</span>
+              {group.exercises.map(row)}
             </div>
-            <div className="ex-edit-sets">
-              <label className="field-label" htmlFor={`sets-${ex.id}`}>Series</label>
-              <label className="field-label ex-edit-reps-label" htmlFor={`reps-${ex.id}`}>Reps</label>
-              <SetsInput
-                id={`sets-${ex.id}`}
-                exercise={ex}
-                onChange={(sets) => onUpdateExercise(ex.id, { sets })}
-              />
-              <input
-                id={`reps-${ex.id}`}
-                className="field-input"
-                value={ex.reps}
-                placeholder="8, 10/pierna, 30-45s…"
-                aria-label={`Reps de ${ex.name || 'ejercicio'}`}
-                onInput={(e) => onUpdateExercise(ex.id, { reps: e.target.value })}
-                onChange={() => {}}
-              />
-              <button
-                className={`bw-toggle ${ex.allowBW ? 'active' : ''}`}
-                aria-label="Permitir peso corporal"
-                aria-pressed={ex.allowBW}
-                onClick={() => onUpdateExercise(ex.id, { allowBW: !ex.allowBW })}
-              >PC</button>
-            </div>
-            <textarea
-              className="field-input field-textarea"
-              rows={2}
-              value={ex.notes ?? ''}
-              placeholder="Notas: técnica, agarre, recordatorios…"
-              aria-label={`Notas de ${ex.name || 'ejercicio'}`}
-              onInput={(e) => onUpdateExercise(ex.id, { notes: e.target.value })}
-              onChange={() => {}}
-            />
-          </div>
-        ))}
-      </div>
-
-      <button className="add-btn" onClick={onAddExercise}>Añadir ejercicio</button>
+          ) : row(group.exercises[0])))}
+        </div>
+      )}
+      <button className="btn dashed" onClick={onAddExercise}>
+        <Icon name="plus" size={20} />
+        Añadir ejercicio
+      </button>
+      <button className="btn quiet danger-text" onClick={(e) => setRemoveOpener(e.currentTarget)}>Borrar este día</button>
+      {removeOpener && (
+        <ConfirmSheet
+          title={`¿Borrar «${day.label || 'este día'}»?`}
+          text={removeWarning()}
+          confirmLabel="Borrar día"
+          danger
+          opener={removeOpener}
+          onConfirm={onRemoveDay}
+          onCancel={closeRemove}
+        />
+      )}
     </>
   );
 }

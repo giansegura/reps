@@ -27,18 +27,20 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('progreso desde el inicio', async ({ page }) => {
-  await page.getByRole('button', { name: 'Progreso' }).click();
+  await page.getByRole('button', { name: 'Progreso', exact: true }).click();
   await expect(page.getByRole('combobox', { name: 'Ejercicio' })).toHaveValue('day1:squat');
   await expect(page.getByRole('combobox', { name: 'Ejercicio' }).locator('option:checked')).toHaveText('Sentadilla');
   await expect(page.getByText('1.440 kg', { exact: true })).toBeVisible();
   await expect(page.getByText('▲ 20 %')).toBeVisible();
+  await expect(page.locator('.recent-row')).toHaveText(['lun 19 oct60 kg × 8 · 8 · 8', 'lun 12 oct50 kg × 8 · 8 · 8']);
   await page.getByRole('button', { name: 'Mes' }).click();
   await expect(page.getByRole('list', { name: 'Evolución' }).getByRole('listitem')).toHaveCount(6);
 });
 
 test('progreso desde el entreno sin perderlo', async ({ page }) => {
-  await page.locator('.day-card').first().click();
-  const weight = page.locator('.set-row').first().getByRole('spinbutton', { name: /peso/ });
+  await page.getByRole('button', { name: /^Día 1/ }).click();
+  await page.getByRole('button', { name: 'Empezar entreno' }).click();
+  const weight = page.getByRole('spinbutton', { name: /peso en kilos/ });
   await weight.fill('40');
   await page.getByRole('button', { name: 'Progreso de Sentadilla' }).click();
   const dialog = page.getByRole('dialog', { name: 'Sentadilla' });
@@ -50,7 +52,7 @@ test('progreso desde el entreno sin perderlo', async ({ page }) => {
 });
 
 test('los selectores se pulsan bien con el dedo', async ({ page }) => {
-  await page.getByRole('button', { name: 'Progreso' }).click();
+  await page.getByRole('button', { name: 'Progreso', exact: true }).click();
   for (const name of ['Semana', 'Mes', 'Volumen', 'Peso máx.']) {
     const box = await page.getByRole('button', { name, exact: true }).boundingBox();
     expect(box.height).toBeGreaterThanOrEqual(40);

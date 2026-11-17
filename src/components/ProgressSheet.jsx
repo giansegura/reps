@@ -1,6 +1,5 @@
-import { useRef } from 'react';
 import { ProgressChart } from './ProgressChart.jsx';
-import { useModal } from './useModal.js';
+import { Sheet } from './Sheet.jsx';
 
 export const ProgressSheet = ({
   exercise,
@@ -13,36 +12,21 @@ export const ProgressSheet = ({
   onMetricChange,
   opener,
   onClose,
-}) => {
-  const dialogRef = useRef(null);
-
-  useModal(dialogRef, onClose, opener);
-
-  return (
-    <div className="modal-backdrop progress-sheet-backdrop" onClick={onClose}>
-      <div
-        ref={dialogRef}
-        className="modal progress-sheet"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="progress-sheet-title"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="modal-header">
-          <span id="progress-sheet-title" className="modal-title">{exercise.name}</span>
-          <button className="modal-btn" autoFocus onClick={onClose}>Cerrar</button>
-        </div>
-        <ProgressChart
-          sessions={sessions}
-          planId={planId}
-          exercise={exercise}
-          color={color}
-          period={period}
-          metric={metric}
-          onPeriodChange={onPeriodChange}
-          onMetricChange={onMetricChange}
-        />
-      </div>
+}) => (
+  <Sheet labelledBy="progress-sheet-title" opener={opener} onClose={onClose}>
+    <div className="sheet-head">
+      <h2 id="progress-sheet-title" className="sheet-title">{exercise.name}</h2>
+      <button className="pill-btn" autoFocus onClick={onClose}>Cerrar</button>
     </div>
-  );
-};
+    <ProgressChart
+      sessions={sessions}
+      planId={planId}
+      exercise={exercise}
+      color={color}
+      period={period}
+      metric={metric}
+      onPeriodChange={onPeriodChange}
+      onMetricChange={onMetricChange}
+    />
+  </Sheet>
+);
