@@ -5,10 +5,11 @@ test('la landing explica Reps y lleva a la app', async ({ page }) => {
   await expect(page).toHaveTitle(/Reps/);
   await expect(page.getByRole('heading', { level: 1 })).toContainText('Apunta lo que levantas');
   await expect(page.getByText('Todo lo que levantas queda guardado para que veas cómo progresas.')).toBeVisible();
-  await expect(page.getByText('Arranca solo al terminar cada serie. Suena a los dos minutos.')).toBeVisible();
+  await expect(page.getByText('Arranca solo al terminar cada serie. Suena a los dos minutos, o al tiempo que pongas en cada ejercicio.')).toBeVisible();
+  await expect(page.getByRole('img', { name: /La pantalla de entreno de Reps/ })).toBeVisible();
   await page.getByRole('link', { name: 'Empezar →' }).click();
   await expect(page).toHaveURL(/\/reps\/app\/$/);
-  await expect(page.getByRole('heading', { name: 'Hoy' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Empezar entreno' })).toBeVisible();
 });
 
 test('la app instalada se salta la landing', async ({ page }) => {
