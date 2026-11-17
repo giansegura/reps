@@ -1,13 +1,25 @@
 import { Sheet } from './Sheet.jsx';
 
-export function ConfirmSheet({ title, text, confirmLabel, cancelLabel = 'Cancelar', danger = false, opener, onConfirm, onCancel }) {
+const stay = () => {};
+
+export function ConfirmSheet({
+  title,
+  text,
+  confirmLabel,
+  cancelLabel = 'Cancelar',
+  danger = false,
+  dismissible = true,
+  opener,
+  onConfirm,
+  onCancel,
+}) {
   return (
     <Sheet
       role="alertdialog"
       labelledBy="confirm-title"
       describedBy={text ? 'confirm-text' : undefined}
       opener={opener}
-      onClose={onCancel}
+      onClose={dismissible ? onCancel : stay}
     >
       <h2 id="confirm-title" className="sheet-title">{title}</h2>
       {text && <p id="confirm-text" className="sheet-text">{text}</p>}

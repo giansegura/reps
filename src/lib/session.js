@@ -13,10 +13,13 @@ export const countSessions = (sessions, filter) => sessions.filter(s => matches(
 
 const hasValues = (sets) => !!sets && Object.values(sets).some(set => set && (set.weight || set.reps));
 
-export const latestExerciseEntry = (sessions, planId, exerciseId) => {
+const hasDone = (sets) => !!sets && Object.values(sets).some(set => set?.done);
+
+export const latestExerciseEntry = (sessions, planId, exerciseId, { onlyDone = false } = {}) => {
+  const counts = onlyDone ? hasDone : hasValues;
   const session = sessions.reduce(
     (latest, s) => (
-      s.planId === planId && hasValues(s.exercises?.[exerciseId]) && (!latest || s.date > latest.date) ? s : latest
+      s.planId === planId && counts(s.exercises?.[exerciseId]) && (!latest || s.date > latest.date) ? s : latest
     ),
     undefined,
   );

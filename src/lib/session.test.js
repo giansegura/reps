@@ -67,6 +67,12 @@ describe('latestExerciseEntry', () => {
     expect(latestExerciseEntry([log[2]], 'p1', 'e1')).toBeNull();
   });
 
+  it('puede pedir solo entrenos donde el ejercicio se hizo de verdad', () => {
+    const skipped = withSets('p1', 'd1', '2026-10-10T10:00:00.000Z', { e1: { 1: { weight: '65', reps: '8', done: false } } });
+    expect(latestExerciseEntry([...log, skipped], 'p1', 'e1').date).toBe(skipped.date);
+    expect(latestExerciseEntry([...log, skipped], 'p1', 'e1', { onlyDone: true }).date).toBe('2026-10-05T10:00:00.000Z');
+  });
+
   it('devuelve null si nunca se ha hecho', () => {
     expect(latestExerciseEntry(log, 'p1', 'zz')).toBeNull();
     expect(latestExerciseEntry([], 'p1', 'e1')).toBeNull();

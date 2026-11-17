@@ -72,13 +72,6 @@ const mapExercises = (plan, dayId, fn) =>
 export const addExercise = (plan, dayId, exercise) =>
   mapExercises(plan, dayId, list => [...list, exercise]);
 
-export const removeExercise = (plan, dayId, exId) =>
-  mapExercises(plan, dayId, list => list.filter(e => e.id !== exId));
-
 export const updateExercise = (plan, dayId, exId, patch) =>
   mapExercises(plan, dayId, list =>
     list.map(e => (e.id === exId ? { ...e, ...patch } : e)));
-
-export const moveExercise = (plan, dayId, exId, delta) =>
-  mapExercises(plan, dayId, list =>
-    move(list, list.findIndex(e => e.id === exId), delta));

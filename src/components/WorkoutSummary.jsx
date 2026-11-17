@@ -70,7 +70,7 @@ export function WorkoutSummary({ day, workout, sessions, planId, startedAt, comp
           <section className="summary-list">
             <h2 className="kicker">Lo que has hecho</h2>
             {rows.map(({ exercise, sets }) => {
-              const up = gain(sets, latestExerciseEntry(sessions, planId, exercise.id));
+              const up = gain(sets, latestExerciseEntry(sessions, planId, exercise.id, { onlyDone: true }));
               return (
                 <div key={exercise.id} className="summary-row">
                   <span className="summary-head">

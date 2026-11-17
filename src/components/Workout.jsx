@@ -171,7 +171,7 @@ export function Workout({
       ...currentWorkout,
       [exercise.id]: { ...currentWorkout[exercise.id], [set]: { ...currentWorkout[exercise.id]?.[set], done: true } },
     };
-    onToggleDone(exercise.id, set, restAfterStep(group, step));
+    onToggleDone(exercise.id, set, restAfterStep(group, step, after));
     if (pendingStep(group, after)) return;
     const next = nextGroupIndex(groups, after, groupIndex);
     if (next !== null) setGroupIndex(next);
