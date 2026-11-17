@@ -17,8 +17,8 @@ const seed = async (page, entries) => {
 };
 
 const saveWorkout = async (page, weight) => {
-  await page.getByRole('spinbutton', { name: /peso en kilos/ }).fill(weight);
-  await page.getByRole('button', { name: 'Serie hecha' }).click();
+  await page.getByRole('spinbutton', { name: 'Sentadilla, serie 1, peso en kilos' }).fill(weight);
+  await page.getByRole('button', { name: 'Marcar serie 1 de Sentadilla' }).click();
   await page.getByRole('button', { name: 'Terminar', exact: true }).click();
   await page.getByRole('button', { name: /^Guardar entreno/ }).click();
   await expect(page.getByText(/^Hecho hoy/)).toBeVisible();

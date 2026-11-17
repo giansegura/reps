@@ -40,9 +40,10 @@ test('progreso desde el inicio', async ({ page }) => {
 test('progreso desde el entreno sin perderlo', async ({ page }) => {
   await page.getByRole('button', { name: /^Día 1/ }).click();
   await page.getByRole('button', { name: 'Empezar entreno' }).click();
-  const weight = page.getByRole('spinbutton', { name: /peso en kilos/ });
+  const weight = page.getByRole('spinbutton', { name: 'Sentadilla, serie 1, peso en kilos' });
   await weight.fill('40');
-  await page.getByRole('button', { name: 'Progreso de Sentadilla' }).click();
+  await page.getByRole('button', { name: 'Notas y progreso de Sentadilla' }).click();
+  await page.getByRole('button', { name: 'Ver progreso' }).click();
   const dialog = page.getByRole('dialog', { name: 'Sentadilla' });
   await expect(dialog.getByText('1.440 kg', { exact: true })).toBeVisible();
   await dialog.getByRole('button', { name: 'Cerrar' }).click();
